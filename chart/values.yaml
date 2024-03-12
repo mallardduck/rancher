@@ -18,6 +18,7 @@ auditLog:
   maxAge: 1
   maxBackup: 1
   maxSize: 100
+  resources: {}
 
   # Image for collecting rancher audit logs.
   # Important: update pkg/image/export/resolve.go when this default image is changed, so that it's reflected accordingly in rancher-images.txt generated for air-gapped setups.
@@ -115,7 +116,7 @@ replicas: 3
 # Set priorityClassName to avoid eviction
 priorityClassName: rancher-critical
 
-# Set pod resource requests/limits for Rancher.
+# Set pod resource requests/limits for the Rancher container.
 resources: {}
 
 #
