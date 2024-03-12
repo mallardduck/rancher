@@ -215,6 +215,8 @@ spec:
         volumeMounts:
         - mountPath: /var/log/auditlog
           name: audit-log
+        resources:
+{{ toYaml .Values.auditLog.resources | indent 10 }}
   {{- end }}
 {{- end }}
       volumes:
