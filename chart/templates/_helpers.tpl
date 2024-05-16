@@ -99,3 +99,14 @@ true
 {{- fail "Invalid value for .Values.global.cattle.psp.enabled - must be a bool of true, false, or \"\"" -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Helper function to validate agentTLSMode.
+*/}}
+{{- define "rancher.agent_tls_mode" -}}
+{{- if eq .Values.agentTLSMode "strict" -}}
+true
+{{- else if eq .Values.agentTLSMode "system-store" -}}
+false
+{{- end -}}
+{{- end -}}
