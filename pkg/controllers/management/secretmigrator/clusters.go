@@ -201,7 +201,7 @@ func (m *Migrator) UpdateSecretOwnerReference(secret *corev1.Secret, owner metav
 // createOrUpdateSecret accepts an optional secret name and tries to update it with the provided data if it exists, or creates it.
 // If an owner is provided, it sets it as an owner reference before creating it. If annotations are provided, they are added
 // before the secret is created.
-func (m *Migrator) createOrUpdateSecret(secretName, secretNamespace string, data, annotations map[string]string, owner runtime.Object, kind, field string) (*corev1.Secret, error) {
+func (m *Migrator) createOrUpdateSecret(secretName, secretNamespace string, data, annotations map[string]string, owner runtime.Object, kind, field string, labels *map[string]string) (*corev1.Secret, error) {
 	var existing *corev1.Secret
 	var err error
 	if secretName != "" {
@@ -237,6 +237,9 @@ func (m *Migrator) createOrUpdateSecret(secretName, secretNamespace string, data
 	if annotations != nil {
 		secret.Annotations = annotations
 	}
+	if labels != nil {
+		secret.Labels = *labels
+	}
 	if existing == nil {
 		return m.secrets.Create(secret)
 	}
@@ -261,7 +264,11 @@ func (m *Migrator) createOrUpdateSecretForCredential(secretName, secretNamespace
 	data := map[string]string{
 		SecretKey: secretValue,
 	}
-	secret, err := m.createOrUpdateSecret(secretName, secretNamespace, data, annotations, owner, kind, field)
+	secretLabels := map[string]string{}
+	if strings.HasPrefix(secretNamespace, "fleet") {
+		secretLabels["fleet.cattle.io/managed"] = "true"
+	}
+	secret, err := m.createOrUpdateSecret(secretName, secretNamespace, data, annotations, owner, kind, field, &secretLabels)
 	if err != nil {
 		return nil, fmt.Errorf("error creating secret for credential: %w", err)
 	}
@@ -326,7 +333,7 @@ func (m *Migrator) CreateOrUpdateVsphereVirtualCenterSecret(secretName string, r
 	if len(data) == 0 {
 		return nil, nil
 	}
-	return m.createOrUpdateSecret(secretName, SecretNamespace, data, nil, owner, "cluster", "vspherevcenter")
+	return m.createOrUpdateSecret(secretName, SecretNamespace, data, nil, owner, "cluster", "vspherevcenter", nil)
 }
 
 // CreateOrUpdateOpenStackSecret accepts an optional secret name and a RancherKubernetesEngineConfig object
@@ -519,7 +526,7 @@ func (m *Migrator) CreateOrUpdatePrivateRegistryECRSecret(secretName string, rke
 	data = map[string]string{
 		SecretKey: string(b),
 	}
-	return m.createOrUpdateSecret(secretName, SecretNamespace, data, nil, owner, "cluster", "privateregistryecr")
+	return m.createOrUpdateSecret(secretName, SecretNamespace, data, nil, owner, "cluster", "privateregistryecr", nil)
 }
 
 // Cleanup deletes a secret if provided a secret name, otherwise does nothing.
