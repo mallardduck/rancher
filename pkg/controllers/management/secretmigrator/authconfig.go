@@ -154,7 +154,8 @@ func (h *handler) migrateShibbolethSecrets(unstructuredConfig runtime.Unstructur
 		nil,
 		shibbConfig,
 		authConfigKind,
-		lowercaseFieldName)
+		lowercaseFieldName,
+		nil)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +191,8 @@ func (h *handler) migrateOKTASecrets(unstructuredConfig runtime.Unstructured) (r
 		nil,
 		oktaConfig,
 		authConfigKind,
-		lowercaseFieldName)
+		lowercaseFieldName,
+		nil)
 	if err != nil {
 		return nil, err
 	}
