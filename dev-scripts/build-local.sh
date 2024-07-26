@@ -8,6 +8,7 @@ set -x
 
 SCRIPT_DIR="$(cd "$(dirname "$0")"; pwd)"
 source "$SCRIPT_DIR/../scripts/export-config"
+source "$SCRIPT_DIR/../scripts/version"
 
 TARGET_OS="${TARGET_OS:-linux}"
 GO_BINARY="${GO_BINARY:-$(which go)}"
@@ -56,10 +57,17 @@ cp "${DATA_JSON_FILE}" "${PACKAGE_FOLDER}"
 cp "${K3S_AIRGAP_IMAGES_TARBALL}" "${PACKAGE_FOLDER}"
 
 DOCKERFILE="${SCRIPT_DIR}/../package/Dockerfile"
+if [[ "$TARGET_REPO" != *:* ]]; then
+  # Append tag version ":" is missing
+  TARGET_REPO="$TARGET_REPO:$TAG"
+
+  echo "Updated target tag: $TARGET_REPO"
+fi
 # Always use buildx to make sure the image & the binary architectures match
 docker buildx build -t "${TARGET_REPO}" -f "${DOCKERFILE}" \
   --build-arg CATTLE_RANCHER_WEBHOOK_VERSION="${CATTLE_RANCHER_WEBHOOK_VERSION}" \
   --build-arg CATTLE_CSP_ADAPTER_MIN_VERSION="${CATTLE_CSP_ADAPTER_MIN_VERSION}" \
   --build-arg CATTLE_FLEET_VERSION="${CATTLE_FLEET_VERSION}" \
   --build-arg ARCH="${TARGET_ARCH}" \
+  --build-arg VERSION="v2.9-head" \
   "${PACKAGE_FOLDER}" --platform="${TARGET_OS}/${TARGET_ARCH}"
