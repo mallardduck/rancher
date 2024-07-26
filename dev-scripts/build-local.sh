@@ -56,13 +56,14 @@ cp "${RANCHER_BINARY}" "${PACKAGE_FOLDER}"
 cp "${DATA_JSON_FILE}" "${PACKAGE_FOLDER}"
 cp "${K3S_AIRGAP_IMAGES_TARBALL}" "${PACKAGE_FOLDER}"
 
-DOCKERFILE="${SCRIPT_DIR}/../package/Dockerfile"
 if [[ "$TARGET_REPO" != *:* ]]; then
   # Append tag version ":" is missing
   TARGET_REPO="$TARGET_REPO:$TAG"
 
   echo "Updated target tag: $TARGET_REPO"
 fi
+
+DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
 # Always use buildx to make sure the image & the binary architectures match
 docker buildx build -t "${TARGET_REPO}" -f "${DOCKERFILE}" \
   --build-arg CATTLE_RANCHER_WEBHOOK_VERSION="${CATTLE_RANCHER_WEBHOOK_VERSION}" \

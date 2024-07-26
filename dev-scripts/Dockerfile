@@ -1,19 +1,8 @@
-FROM --platform=$BUILDPLATFORM registry.suse.com/bci/golang:1.22 as build
-ARG VERSION
-ARG COMMIT
-ARG RKE_VERSION
-ARG CGO_ENABLED=0
-ARG TAGS="k8s"
-ARG LINKFLAGS="-extldflags -static"
-ARG DEFAULT_VALUES="{\"rke-version\":\"${RKE_VERSION}\"}"
-ARG LDFLAGS="-X github.com/rancher/rancher/pkg/version.Version=${VERSION} -X github.com/rancher/rancher/pkg/version.GitCommit=${COMMIT} -X github.com/rancher/rancher/pkg/settings.InjectDefaults=${DEFAULT_VALUES} ${LINKFLAGS}"
-ARG TARGETOS
-ARG TARGETARCH
+FROM --platform=$BUILDPLATFORM  registry.suse.com/bci/bci-micro:15.6 AS build
 
+RUN mkdir /app
 WORKDIR /app
 COPY . .
-RUN go mod download
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags "${TAGS}" -ldflags "${LDFLAGS}" -o rancher
 
 FROM registry.suse.com/bci/bci-micro:15.6 AS final
 
@@ -58,12 +47,12 @@ WORKDIR /var/lib/rancher
 ARG ARCH=amd64
 ARG ETCD_UNSUPPORTED_ARCH
 ARG IMAGE_REPO=rancher
-ARG SYSTEM_CHART_DEFAULT_BRANCH=release-v2.9
-ARG CHART_DEFAULT_BRANCH=release-v2.9
+ARG SYSTEM_CHART_DEFAULT_BRANCH=dev-v2.9
+ARG CHART_DEFAULT_BRANCH=dev-v2.9
 ARG PARTNER_CHART_DEFAULT_BRANCH=main
 ARG RKE2_CHART_DEFAULT_BRANCH=main
 # kontainer-driver-metadata branch to be set for specific branch other than dev/master, logic at rancher/rancher/pkg/settings/setting.go
-ARG CATTLE_KDM_BRANCH=release-v2.9
+ARG CATTLE_KDM_BRANCH=dev-v2.9
 ARG VERSION=${VERSION}
 
 ENV CATTLE_SYSTEM_CHART_DEFAULT_BRANCH=$SYSTEM_CHART_DEFAULT_BRANCH
@@ -278,9 +267,9 @@ ENV CATTLE_CLI_URL_WINDOWS https://releases.rancher.com/cli2/${CATTLE_CLI_VERSIO
 ENV CATTLE_SERVER_VERSION ${VERSION}
 
 COPY --from=build /app/rancher /usr/bin/
-COPY --from=build /app/package/entrypoint.sh /usr/bin/
-COPY --from=build /app/package/kustomize.sh /usr/bin/
-COPY --from=build app/package/jailer.sh /usr/bin/
+COPY --from=build /app/entrypoint.sh /usr/bin/
+COPY --from=build /app/kustomize.sh /usr/bin/
+COPY --from=build /app/jailer.sh /usr/bin/
 COPY --from=build /app/k3s-airgap-images.tar /var/lib/rancher/k3s/agent/images/
 RUN chmod +x /usr/bin/entrypoint.sh
 RUN chmod +x /usr/bin/kustomize.sh
