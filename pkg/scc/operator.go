@@ -1,4 +1,4 @@
-package sccregistration
+package scc
 
 import (
 	"context"

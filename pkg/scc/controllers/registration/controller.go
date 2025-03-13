@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 
-	"github.com/rancher/rancher/pkg/sccregistration/suseconnect"
+	"github.com/rancher/rancher/pkg/scc/suseconnect"
 
 	registrationClient "github.com/SUSE/connect-ng/pkg/registration"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
