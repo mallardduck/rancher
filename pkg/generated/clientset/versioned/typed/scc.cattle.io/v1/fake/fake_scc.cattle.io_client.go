@@ -28,12 +28,12 @@ type FakeSccV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeSccV1) Registrations(namespace string) v1.RegistrationInterface {
-	return newFakeRegistrations(c, namespace)
+func (c *FakeSccV1) Registrations() v1.RegistrationInterface {
+	return newFakeRegistrations(c)
 }
 
-func (c *FakeSccV1) RegistrationRequests(namespace string) v1.RegistrationRequestInterface {
-	return newFakeRegistrationRequests(c, namespace)
+func (c *FakeSccV1) RegistrationRequests() v1.RegistrationRequestInterface {
+	return newFakeRegistrationRequests(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -46,9 +46,9 @@ type version struct {
 }
 
 func (v *version) Registration() RegistrationController {
-	return generic.NewController[*v1.Registration, *v1.RegistrationList](schema.GroupVersionKind{Group: "scc.cattle.io", Version: "v1", Kind: "Registration"}, "registrations", true, v.controllerFactory)
+	return generic.NewNonNamespacedController[*v1.Registration, *v1.RegistrationList](schema.GroupVersionKind{Group: "scc.cattle.io", Version: "v1", Kind: "Registration"}, "registrations", v.controllerFactory)
 }
 
 func (v *version) RegistrationRequest() RegistrationRequestController {
-	return generic.NewController[*v1.RegistrationRequest, *v1.RegistrationRequestList](schema.GroupVersionKind{Group: "scc.cattle.io", Version: "v1", Kind: "RegistrationRequest"}, "registrationrequests", true, v.controllerFactory)
+	return generic.NewNonNamespacedController[*v1.RegistrationRequest, *v1.RegistrationRequestList](schema.GroupVersionKind{Group: "scc.cattle.io", Version: "v1", Kind: "RegistrationRequest"}, "registrationrequests", v.controllerFactory)
 }

@@ -32,7 +32,7 @@ import (
 // RegistrationsGetter has a method to return a RegistrationInterface.
 // A group's client should implement this interface.
 type RegistrationsGetter interface {
-	Registrations(namespace string) RegistrationInterface
+	Registrations() RegistrationInterface
 }
 
 // RegistrationInterface has methods to work with Registration resources.
@@ -56,13 +56,13 @@ type registrations struct {
 }
 
 // newRegistrations returns a Registrations
-func newRegistrations(c *SccV1Client, namespace string) *registrations {
+func newRegistrations(c *SccV1Client) *registrations {
 	return &registrations{
 		gentype.NewClientWithList[*scccattleiov1.Registration, *scccattleiov1.RegistrationList](
 			"registrations",
 			c.RESTClient(),
 			scheme.ParameterCodec,
-			namespace,
+			"",
 			func() *scccattleiov1.Registration { return &scccattleiov1.Registration{} },
 			func() *scccattleiov1.RegistrationList { return &scccattleiov1.RegistrationList{} },
 		),
