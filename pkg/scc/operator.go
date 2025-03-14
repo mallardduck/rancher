@@ -3,6 +3,9 @@ package scc
 import (
 	"context"
 	"fmt"
+
+	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core"
+
 	"github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io"
 	"github.com/rancher/rancher/pkg/scc/controllers/registration"
 	"github.com/rancher/rancher/pkg/scc/controllers/registrationrequest"
@@ -12,6 +15,7 @@ import (
 
 type sccOperator struct {
 	sccFactory *scc.Factory
+	core       *v1core.Factory
 }
 
 func setup(wContext *wrangler.Context) (sccOperator, error) {
@@ -21,8 +25,14 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 		return sccOperator{}, fmt.Errorf("error building scc controllers: %s", err.Error())
 	}
 
+	coreF, err := v1core.NewFactoryFromConfig(restConfig)
+	if err != nil {
+		return sccOperator{}, fmt.Errorf("error building core sample controllers: %s", err.Error())
+	}
+
 	return sccOperator{
 		sccFactory: registrationSccFactory,
+		core:       coreF,
 	}, nil
 }
 
@@ -44,6 +54,8 @@ func Setup(
 	registrationrequest.Register(
 		ctx,
 		initOperator.sccFactory.Scc().V1().RegistrationRequest(),
+		initOperator.core.Core().V1().ConfigMap(),
+		initOperator.core.Core().V1().Secret(),
 	)
 	registration.Register(
 		ctx,
