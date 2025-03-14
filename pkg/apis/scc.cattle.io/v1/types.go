@@ -53,6 +53,7 @@ type Registration struct {
 }
 
 type RegistrationSpec struct {
+	CheckNow bool `json:"checkNow,omitempty"`
 }
 
 type RegistrationStatus struct {
