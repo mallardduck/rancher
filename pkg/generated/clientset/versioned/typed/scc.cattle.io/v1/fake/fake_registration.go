@@ -30,11 +30,11 @@ type fakeRegistrations struct {
 	Fake *FakeSccV1
 }
 
-func newFakeRegistrations(fake *FakeSccV1, namespace string) scccattleiov1.RegistrationInterface {
+func newFakeRegistrations(fake *FakeSccV1) scccattleiov1.RegistrationInterface {
 	return &fakeRegistrations{
 		gentype.NewFakeClientWithList[*v1.Registration, *v1.RegistrationList](
 			fake.Fake,
-			namespace,
+			"",
 			v1.SchemeGroupVersion.WithResource("registrations"),
 			v1.SchemeGroupVersion.WithKind("Registration"),
 			func() *v1.Registration { return &v1.Registration{} },

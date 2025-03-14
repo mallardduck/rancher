@@ -19,7 +19,7 @@ const (
 )
 
 // +genclient
-// +kubebuilder:skipversion
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RegistrationRequest struct {
@@ -41,7 +41,7 @@ type RegistrationRequestStatus struct {
 }
 
 // +genclient
-// +kubebuilder:skipversion
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Registration struct {

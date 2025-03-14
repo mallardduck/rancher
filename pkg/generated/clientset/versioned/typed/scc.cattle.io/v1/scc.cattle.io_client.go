@@ -37,12 +37,12 @@ type SccV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *SccV1Client) Registrations(namespace string) RegistrationInterface {
-	return newRegistrations(c, namespace)
+func (c *SccV1Client) Registrations() RegistrationInterface {
+	return newRegistrations(c)
 }
 
-func (c *SccV1Client) RegistrationRequests(namespace string) RegistrationRequestInterface {
-	return newRegistrationRequests(c, namespace)
+func (c *SccV1Client) RegistrationRequests() RegistrationRequestInterface {
+	return newRegistrationRequests(c)
 }
 
 // NewForConfig creates a new SccV1Client for the given config.

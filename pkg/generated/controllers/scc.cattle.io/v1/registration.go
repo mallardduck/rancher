@@ -36,17 +36,17 @@ import (
 
 // RegistrationController interface for managing Registration resources.
 type RegistrationController interface {
-	generic.ControllerInterface[*v1.Registration, *v1.RegistrationList]
+	generic.NonNamespacedControllerInterface[*v1.Registration, *v1.RegistrationList]
 }
 
 // RegistrationClient interface for managing Registration resources in Kubernetes.
 type RegistrationClient interface {
-	generic.ClientInterface[*v1.Registration, *v1.RegistrationList]
+	generic.NonNamespacedClientInterface[*v1.Registration, *v1.RegistrationList]
 }
 
 // RegistrationCache interface for retrieving Registration resources in memory.
 type RegistrationCache interface {
-	generic.CacheInterface[*v1.Registration]
+	generic.NonNamespacedCacheInterface[*v1.Registration]
 }
 
 // RegistrationStatusHandler is executed for every added or modified Registration. Should return the new status to be updated
