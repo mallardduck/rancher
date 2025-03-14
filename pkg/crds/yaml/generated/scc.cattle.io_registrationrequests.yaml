@@ -39,11 +39,13 @@ spec:
             properties:
               mode:
                 type: string
+              registrationCertificate:
+                format: byte
+                type: string
               registrationCode:
                 type: string
             required:
             - mode
-            - registrationCode
             type: object
           status:
             properties:

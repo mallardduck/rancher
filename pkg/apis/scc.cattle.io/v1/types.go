@@ -31,8 +31,9 @@ type RegistrationRequest struct {
 }
 
 type RegistrationRequestSpec struct {
-	Mode             string `json:"mode"`
-	RegistrationCode string `json:"registrationCode"`
+	Mode                    string `json:"mode"` // Either offline or online
+	RegistrationCode        string `json:"registrationCode,omitempty"`
+	RegistrationCertificate []byte `json:"registrationCertificate,omitempty"`
 }
 
 type RegistrationRequestStatus struct {
