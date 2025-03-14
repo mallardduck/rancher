@@ -302,6 +302,7 @@ func (r *Rancher) Start(ctx context.Context) error {
 	}
 
 	if features.RancherSCCRegistrationExtension.Enabled() {
+		logrus.Info("starting RancherSCCRegistrationExtension")
 		err := scc.Setup(ctx, r.Wrangler)
 		if err != nil {
 			return err
