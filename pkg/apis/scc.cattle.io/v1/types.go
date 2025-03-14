@@ -31,6 +31,7 @@ type RegistrationRequest struct {
 }
 
 type RegistrationRequestSpec struct {
+	// +kubebuilder:validation:Enum=online;offline
 	Mode                    string `json:"mode"` // Either offline or online
 	RegistrationCode        string `json:"registrationCode,omitempty"`
 	RegistrationCertificate []byte `json:"registrationCertificate,omitempty"`
