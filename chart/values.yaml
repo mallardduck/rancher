@@ -214,6 +214,16 @@ webhook: ""
 # helm values set here will override all other global values used when installing the fleet chart.
 fleet: ""
 
+# SCC Registration for Rancher Prime
+# For more information see: TODO link to a docs page
+registration:
+  enabled: false
+  regCode: ""
+  # The default mode is online and this is preferred for most users.
+  # If your cluster is in an air-gap, or otherwise cannot reach the SUSE SCC
+  # mode: offline
+  # certificate: {}
+
 # Create a dynamic manifests via values:
 # Beware: There will be no validation on these resource manifests in `extraObjects` - they must be valid k8s resources.
 # If you encounter issues installing/upgrading rancher while using these, please investigate these first.
