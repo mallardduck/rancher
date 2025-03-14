@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rancher/rancher/pkg/scc"
 	"net/http"
 	"os"
 	"strings"
@@ -296,6 +297,13 @@ func (r *Rancher) Start(ctx context.Context) error {
 		nodedriver.Register(ctx, r.Wrangler)
 		kontainerdrivermetadata.Register(ctx, r.Wrangler)
 		if err := r.Wrangler.MultiClusterManager.Start(ctx); err != nil {
+			return err
+		}
+	}
+
+	if features.RancherSCCRegistrationExtension.Enabled() {
+		err := scc.Setup(ctx, r.Wrangler)
+		if err != nil {
 			return err
 		}
 	}
