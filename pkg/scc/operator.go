@@ -37,7 +37,7 @@ func Setup(
 
 	// TODO: Track if this cluster has had registration operator started ever
 	// TODO: On first boot, check/fetch the ConfigMap/Secrets to populate a RegistrationRequest
-	// This should be skipped on subsequent starts of the cluster
+	// This should be skipped on subsequent starts of the operator
 
 	// TODO register controllers here
 	logrus.Info("Setup controllers here")
