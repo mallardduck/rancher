@@ -33,7 +33,6 @@ func RequiredCRDs() []string {
 	}
 
 	if features.RancherSCCRegistrationExtension.Enabled() {
-		// TODO: init the SCC registration components
 		requiredCRDS = append(requiredCRDS, SCCRegistrationCRDs()...)
 	}
 
@@ -251,6 +250,8 @@ var MigratedResources = map[string]bool{
 	"projectroletemplatebindings.management.cattle.io":                true,
 	"projects.management.cattle.io":                                   true,
 	"rancherusernotifications.management.cattle.io":                   false,
+	"registrationrequest.scc.cattle.io":                               true,
+	"registration.scc.cattle.io":                                      true,
 	"rkeaddons.management.cattle.io":                                  false,
 	"rkebootstraps.rke.cattle.io":                                     false,
 	"rkebootstraptemplates.rke.cattle.io":                             false,
