@@ -4,6 +4,7 @@ import (
 	"context"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
+	"github.com/sirupsen/logrus"
 )
 
 type handler struct {
@@ -23,7 +24,9 @@ func Register(
 	registrationRequests.OnChange(ctx, "registrationRequests", controller.OnRegistrationRequestChange)
 }
 
-func (h *handler) OnRegistrationRequestChange(_ string, registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
+func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
+	logrus.Infof("Received registrationRequest %q", name)
+	logrus.Info("RegistrationRequest ", registrationRequest)
 	// TODO: handle the logic of what happens when one of these is created
 	// Gist being:
 	// 1. Verify RegistrationRequest is not already fulfilled or expired,
