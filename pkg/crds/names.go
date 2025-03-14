@@ -180,8 +180,8 @@ func UIPluginsCRD() []string {
 // SCCRegistrationCRDs returns a list of required CRD names needed for SCC Registration features
 func SCCRegistrationCRDs() []string {
 	return []string{
-		"registrationrequest.scc.cattle.io",
-		"registration.scc.cattle.io",
+		"registrationrequests.scc.cattle.io",
+		"registrations.scc.cattle.io",
 	}
 }
 
@@ -250,8 +250,8 @@ var MigratedResources = map[string]bool{
 	"projectroletemplatebindings.management.cattle.io":                true,
 	"projects.management.cattle.io":                                   true,
 	"rancherusernotifications.management.cattle.io":                   false,
-	"registrationrequest.scc.cattle.io":                               true,
-	"registration.scc.cattle.io":                                      true,
+	"registrationrequests.scc.cattle.io":                              true,
+	"registrations.scc.cattle.io":                                     true,
 	"rkeaddons.management.cattle.io":                                  false,
 	"rkebootstraps.rke.cattle.io":                                     false,
 	"rkebootstraptemplates.rke.cattle.io":                             false,
