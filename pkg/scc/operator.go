@@ -27,7 +27,7 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 
 	coreF, err := v1core.NewFactoryFromConfig(restConfig)
 	if err != nil {
-		return sccOperator{}, fmt.Errorf("error building core sample controllers: %s", err.Error())
+		return sccOperator{}, fmt.Errorf("error building core controllers: %s", err.Error())
 	}
 
 	return sccOperator{
@@ -50,7 +50,7 @@ func Setup(
 	// This should be skipped on subsequent starts of the operator
 
 	// TODO register controllers here
-	logrus.Info("Setup controllers here")
+	logrus.Info("[scc-operator] Setup controllers here")
 	registrationrequest.Register(
 		ctx,
 		initOperator.sccFactory.Scc().V1().RegistrationRequest(),
