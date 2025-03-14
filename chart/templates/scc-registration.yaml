@@ -40,7 +40,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: scc-registration-config
+  name: initial-scc-registration
   labels: {{ include "rancher.labels" . | nindent 4 }}
     app.kubernetes.io/part-of: "rancher"
 data:
