@@ -2,11 +2,6 @@ package registration
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-
-	"github.com/rancher/rancher/pkg/scc/suseconnect"
-
-	registrationClient "github.com/SUSE/connect-ng/pkg/registration"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
 )
@@ -29,21 +24,6 @@ func Register(
 }
 
 func (h *handler) OnRegistrationChange(_ string, registration *v1.Registration) (*v1.Registration, error) {
-
-	sccConnection := suseconnect.DefaultRancherConnection()
-	activate, p, err := registrationClient.Activate(
-		sccConnection,
-		"some-identifier",
-		"version",
-		"arch",
-		"regcode",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	logrus.Info(activate)
-	logrus.Info(p)
-
+	// TODO: handle registration changes - AFAIK the CRDs spec doesn't need user fields
 	return registration, nil
 }
