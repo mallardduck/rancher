@@ -81,8 +81,16 @@ add below linux tolerations to workloads could be scheduled to those linux nodes
 */}}
 {{- define "auditLog_image" -}}
   {{- if .Values.busyboxImage }}
-    {{- .Values.busyboxImage}}
+    {{- .Values.busyboxImage }}
   {{- else }}
     {{- .Values.auditLog.image.repository -}}:{{- .Values.auditLog.image.tag -}}
   {{- end }}
+{{- end -}}
+
+{{- define "registration.mode" -}}
+    {{- if .Values.registration.mode }}
+        {{ .Values.registration.mode }}
+    {{- else }}
+        "online"
+    {{- end }}
 {{- end -}}
