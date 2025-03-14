@@ -3,6 +3,7 @@ package scc
 import (
 	"context"
 	"fmt"
+	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/settings"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
@@ -46,14 +47,59 @@ func (so *sccOperator) maybeFirstInit() error {
 		return nil
 	}
 
+	// TODO: On first boot, check/fetch the ConfigMap/Secrets to populate a RegistrationRequest
 	// Check if the `cattle-system:initial-scc-registration` ConfigMap exists
 	// If it does not, then we simply proceed and mark the setting as false
 	configMap, err := so.core.Core().V1().ConfigMap().Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
 	if err == nil {
 		// Verify the expected fields are on the config map
 		mode, ok := configMap.Data["mode"]
-		// TODO bail here if OK is bad
-		if mode
+		if !ok || (mode != "offline" && mode != "online") {
+			// TODO bail here if OK is bad
+			// Just unclear if we should: a) error, or b) silent error (letting `FirstSCCStart` get updated).
+		}
+
+		newRegistrationRequest := &v1.RegistrationRequest{}
+		newRegistrationRequest.Spec.Mode = mode
+
+		secretName := ""
+		credOk := true
+		if mode == "online" {
+			secretName, credOk = configMap.Data["regCodeRef"]
+		} else if mode == "offline" {
+			secretName, credOk = configMap.Data["certificateRef"]
+		}
+		if !credOk {
+			// TODO bail here if OK is bad
+			// Just unclear if we should: a) error, or b) silent error (letting `FirstSCCStart` get updated).
+		}
+
+		secret, err := so.core.Core().V1().Secret().Get("cattle-system", secretName, metav1.GetOptions{})
+		if err != nil {
+			// TODO bail here if OK is bad
+			// Just unclear if we should: a) error, or b) silent error (letting `FirstSCCStart` get updated).
+		}
+		if secret != nil {
+			newSecret := *secret
+			if mode == "online" {
+				regCode, hasRegCodeKey := newSecret.Data["regCode"]
+				if !hasRegCodeKey {
+					// TODO bail
+				}
+				newRegistrationRequest.Spec.RegistrationCode = string(regCode)
+			} else if mode == "offline" {
+				regCode, hasRegCodeKey := secret.Data["certificate"]
+				if !hasRegCodeKey {
+					// TODO bail
+				}
+				newRegistrationRequest.Spec.RegistrationCode = string(regCode)
+			}
+		}
+
+		_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
+		if err != nil {
+			// TODO bail
+		}
 	}
 
 	// At very end, we will set it to false so this doesn't run again
@@ -73,14 +119,11 @@ func Setup(
 		return fmt.Errorf("error setting up scc operator: %s", err.Error())
 	}
 
+	// This should be skipped on subsequent starts of the operator
 	err = initOperator.maybeFirstInit()
 	if err != nil {
 		return fmt.Errorf("error creating first-start `RegistrationRequest`: %s", err.Error())
 	}
-
-	// TODO: Track if this cluster has had registration operator started ever
-	// TODO: On first boot, check/fetch the ConfigMap/Secrets to populate a RegistrationRequest
-	// This should be skipped on subsequent starts of the operator
 
 	// TODO register controllers here
 	logrus.Info("[scc-operator] Setup controllers here")
