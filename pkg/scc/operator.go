@@ -3,6 +3,9 @@ package scc
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/rancher/pkg/settings"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 
 	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core"
 
@@ -36,6 +39,31 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 	}, nil
 }
 
+// maybeFirstInit will check if the initial `RegistrationRequest` seeding values exist
+// and if they need to be processed into a new `RegistrationRequest` (used during first boot ever)
+func (so *sccOperator) maybeFirstInit() error {
+	if strings.EqualFold(settings.FirstSCCStart.Get(), "false") {
+		return nil
+	}
+
+	// Check if the `cattle-system:initial-scc-registration` ConfigMap exists
+	// If it does not, then we simply proceed and mark the setting as false
+	configMap, err := so.core.Core().V1().ConfigMap().Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
+	if err == nil {
+		// Verify the expected fields are on the config map
+		mode, ok := configMap.Data["mode"]
+		// TODO bail here if OK is bad
+		if mode
+	}
+
+	// At very end, we will set it to false so this doesn't run again
+	if !strings.EqualFold(settings.FirstSCCStart.Get(), "false") {
+		if err := settings.FirstSCCStart.Set("false"); err != nil {
+			return err
+		}
+	}
+}
+
 func Setup(
 	ctx context.Context,
 	wContext *wrangler.Context,
@@ -43,6 +71,11 @@ func Setup(
 	initOperator, err := setup(wContext)
 	if err != nil {
 		return fmt.Errorf("error setting up scc operator: %s", err.Error())
+	}
+
+	err = initOperator.maybeFirstInit()
+	if err != nil {
+		return fmt.Errorf("error creating first-start `RegistrationRequest`: %s", err.Error())
 	}
 
 	// TODO: Track if this cluster has had registration operator started ever
