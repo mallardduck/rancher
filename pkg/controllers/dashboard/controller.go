@@ -18,7 +18,6 @@ import (
 	"github.com/rancher/rancher/pkg/controllers/provisioningv2"
 	"github.com/rancher/rancher/pkg/features"
 	"github.com/rancher/rancher/pkg/provisioningv2/kubeconfig"
-	"github.com/rancher/rancher/pkg/scc"
 	"github.com/rancher/rancher/pkg/wrangler"
 	"github.com/rancher/wrangler/v3/pkg/needacert"
 )
@@ -72,13 +71,6 @@ func Register(ctx context.Context, wrangler *wrangler.Context, embedded bool, re
 
 	if features.MCMAgent.Enabled() || features.MCM.Enabled() {
 		err := mcmagent.Register(ctx, wrangler)
-		if err != nil {
-			return err
-		}
-	}
-
-	if features.RancherSCCRegistrationExtension.Enabled() {
-		err := scc.Register(ctx, wrangler)
 		if err != nil {
 			return err
 		}
