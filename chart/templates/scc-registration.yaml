@@ -4,6 +4,20 @@ This is a workaround for when the scc.cattle.io CRDs may not (almost always won'
 when the helm chart is installed. After that time, users should use the CRDs - potentially this chart should if they are there?
 */}}
 {{- if .Values.registration.enabled }}
+{{- if (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" .Release.Namespace "registrationrequests.scc.cattle.io") -}}
+apiVersion: v1
+kind: RegistrationRequest
+metadata:
+  name: {{ .Release.Name }}
+data:
+  mode: {{ include "registration.mode" . | quote }}
+  {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
+  regCodeRef: "{{ .Values.registration.regCodeRef | default "initial-scc-registration-code:regCode" }}" #configmap field using secret value
+  {{- end }}
+  {{- if or .Values.registration.certificate .Values.registration.certificateRef }}
+  certificateRef: "{{ .Values.registration.certificateRef | default "initial-scc-registration-certificate:certificate" }}" #configmap field using secret value
+  {{- end }}
+{{- else -}}
 {{- if .Values.registration.regCode }}
 ---
 apiVersion: v1
@@ -37,4 +51,5 @@ data:
   {{- if or .Values.registration.certificate .Values.registration.certificateRef }}
   certificateRef: "{{ .Values.registration.certificateRef | default "initial-scc-registration-certificate:certificate" }}" #configmap field using secret value
   {{- end }}
+{{- end -}}
 {{ end -}}
