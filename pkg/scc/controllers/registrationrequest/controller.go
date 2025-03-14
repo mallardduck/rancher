@@ -2,23 +2,32 @@ package registrationrequest
 
 import (
 	"context"
+
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
+	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
+
 	"github.com/sirupsen/logrus"
 )
 
 type handler struct {
 	ctx                  context.Context
 	registrationRequests registrationControllers.RegistrationRequestController
+	configMaps           v1core.ConfigMapController
+	secrets              v1core.SecretController
 }
 
 func Register(
 	ctx context.Context,
 	registrationRequests registrationControllers.RegistrationRequestController,
+	configMaps v1core.ConfigMapController,
+	secrets v1core.SecretController,
 ) {
 	controller := &handler{
 		ctx:                  ctx,
 		registrationRequests: registrationRequests,
+		configMaps:           configMaps,
+		secrets:              secrets,
 	}
 
 	registrationRequests.OnChange(ctx, "registrationRequests", controller.OnRegistrationRequestChange)
