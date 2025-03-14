@@ -4,8 +4,8 @@ This is a workaround for when the scc.cattle.io CRDs may not (almost always won'
 when the helm chart is installed. After that time, users should use the CRDs - potentially this chart should if they are there?
 */}}
 {{- if .Values.registration.enabled }}
-{{- if (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" .Release.Namespace "registrationrequests.scc.cattle.io") -}}
-apiVersion: v1
+{{- if (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" "registrationrequests.scc.cattle.io") -}}
+apiVersion: scc.cattle.io/v1
 kind: RegistrationRequest
 metadata:
   name: {{ .Release.Name }}
