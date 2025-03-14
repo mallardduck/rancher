@@ -38,6 +38,9 @@ spec:
           spec:
             properties:
               mode:
+                enum:
+                - online
+                - offline
                 type: string
               registrationCertificate:
                 format: byte
