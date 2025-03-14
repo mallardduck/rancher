@@ -25,6 +25,12 @@ echo "Dev-Script: Prepare Rancher Chart"
 
 source "$SCRIPT_DIR/version"
 
+if [[ "$DIRTY" ]]; then
+  echo "Dev-Script: Dirty files detected, skipping chart preparation"
+  exit 0
+fi
+
+
 test_image="$REPO/rancher"
 
 echo "Preparing Rancher Chart for release: ${CHART_VERSION}"
