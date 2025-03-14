@@ -36,6 +36,9 @@ spec:
           metadata:
             type: object
           spec:
+            properties:
+              checkNow:
+                type: boolean
             type: object
           status:
             properties:
