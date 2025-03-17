@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/rancher/wrangler/v3/pkg/condition"
 	"github.com/rancher/wrangler/v3/pkg/genericcondition"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,9 +34,9 @@ type RegistrationRequest struct {
 
 type RegistrationRequestSpec struct {
 	// +default:value="online"
-	Mode                    RegistrationMode `json:"mode"` // Either offline or online
-	RegistrationCode        string           `json:"registrationCode,omitempty"`
-	RegistrationCertificate []byte           `json:"registrationCertificate,omitempty"`
+	Mode                             RegistrationMode        `json:"mode"` // Either offline or online
+	RegistrationCodeSecretRef        *corev1.SecretReference `json:"registrationCodeSecretRef,omitempty"`
+	RegistrationCertificateSecretRef *corev1.SecretReference `json:"registrationCertificateSecretRef,omitempty"`
 }
 
 type RegistrationRequestStatus struct {
@@ -43,6 +44,7 @@ type RegistrationRequestStatus struct {
 	RequestProcessedTS string                              `json:"requestProcessedTS"`
 }
 
+// RegistrationMode enforces the valid registration modes
 // +kubebuilder:validation:Enum=online;offline
 type RegistrationMode string
 
