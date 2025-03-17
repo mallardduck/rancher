@@ -46,87 +46,38 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 func (so *sccOperator) maybeFirstInit() error {
 	logrus.Info("SCC controller MaybeFirstInit")
 	if strings.EqualFold(settings.SCCFirstStart.Get(), "false") {
-		logrus.Warn("Skipping the SCC controller first start.")
+		logrus.Warn("Skipping the SCC controller first start; first start already completed previously.")
 		return nil
 	}
 
-	// TODO: On first boot, check/fetch the ConfigMap/Secrets to populate a RegistrationRequest
 	// Check if the `cattle-system:initial-scc-registration` ConfigMap exists
 	// If it does not, then we simply proceed and mark the setting as false
 	configMap, err := so.core.Core().V1().ConfigMap().Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
 	if err != nil {
 		logrus.Warn("Cannot find initial-scc-registration configmap; it will be skipped")
-		return nil
-	}
-
-	// Verify the expected fields are on the config map
-	modeString, ok := configMap.Data["mode"]
-	mode := v1.RegistrationMode(modeString)
-	if !ok || !mode.Valid() {
-		errorMsg := "cannot find the SCC registration initilizer configmap"
-		if ok && !mode.Valid() {
-			errorMsg = fmt.Sprintf("the configmap does not have a valid mode set")
-		}
-		// TODO bail here if OK is bad
-		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
-		logrus.Error(errorMsg)
-		return fmt.Errorf(errorMsg)
-	}
-
-	newRegistrationRequest := &v1.RegistrationRequest{}
-	newRegistrationRequest.Spec.Mode = mode
-
-	credentialValueKey := ""
-	if mode == v1.Online {
-		credentialValueKey = "regCodeRef"
 	} else {
-		credentialValueKey = "certificateRef"
-	}
+		secretName, mode, err := ValidateInitializingConfigMap(configMap)
+		if err != nil {
+			return err
+		}
 
-	secretName, credOk := configMap.Data[credentialValueKey]
-	if !credOk {
-		// TODO bail here if OK is bad
-		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
-		errorMsg := fmt.Sprintf("cannot find the credential value key %s", credentialValueKey)
-		logrus.Error(errorMsg)
-		return fmt.Errorf(errorMsg)
-	}
-
-	secret, err := so.core.Core().V1().Secret().Get("cattle-system", secretName, metav1.GetOptions{})
-	if err != nil {
-		// TODO bail here if OK is bad
-		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
-		logrus.Error(err)
-		return err
-	}
-	if secret != nil {
-		newSecret := *secret
-		if mode == "online" {
-			_, hasRegCodeKey := newSecret.Data["regCode"]
-			if !hasRegCodeKey {
-				// TODO bail
-				errorMsg := fmt.Sprintf("cannot find the expected regCode key on, %s", secret.Name)
-				logrus.Error(errorMsg)
-				return fmt.Errorf(errorMsg)
+		newRegistrationRequest := &v1.RegistrationRequest{}
+		newRegistrationRequest.Spec.Mode = *mode
+		if *mode == v1.Offline {
+			newRegistrationRequest.Spec.RegistrationCertificateSecretRef = &corev1.SecretReference{
+				Name: secretName,
 			}
-		} else if mode == "offline" {
-			_, hasCertKey := secret.Data["certificate"]
-			if !hasCertKey {
-				// TODO bail
-				errorMsg := fmt.Sprintf("cannot find the expected certificate key on, %s", secret.Name)
-				logrus.Error(errorMsg)
-				return fmt.Errorf(errorMsg)
+		} else {
+			newRegistrationRequest.Spec.RegistrationCodeSecretRef = &corev1.SecretReference{
+				Name: secretName,
 			}
 		}
-		newRegistrationRequest.Spec.RegistrationCodeSecretRef = &corev1.SecretReference{
-			Name: secretName,
-		}
-	}
 
-	_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
-	if err != nil {
-		logrus.Error("Cannot create registration request")
-		return err
+		_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
+		if err != nil {
+			logrus.Errorf("Cannot create registration request; %s", err)
+			return err
+		}
 	}
 
 	// At very end, we will set it to false so this doesn't run again
@@ -149,7 +100,7 @@ func Setup(
 		return fmt.Errorf("error setting up scc operator: %s", err.Error())
 	}
 
-	// This should be skipped on subsequent starts of the operator
+	// will be skipped on subsequent starts of the operator
 	err = initOperator.maybeFirstInit()
 	if err != nil {
 		return fmt.Errorf("error creating first-start `RegistrationRequest`: %s", err.Error())
