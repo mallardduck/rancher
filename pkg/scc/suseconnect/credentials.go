@@ -25,14 +25,14 @@ func (ct CredentialType) String() string {
 	return credentialTypeName[ct]
 }
 
-type Credentials struct {
+type SccCredentials struct {
 	token    string
 	login    string
 	password string
 }
 
 // CredentialsType Returns the mode (or modes) that are configured for authentication
-func (c *Credentials) CredentialsType() CredentialType {
+func (c *SccCredentials) CredentialsType() CredentialType {
 	if c.token != "" && c.login != "" && c.password != "" {
 		return CredentialTypeBoth
 	}
@@ -49,7 +49,7 @@ func (c *Credentials) CredentialsType() CredentialType {
 }
 
 // HasAuthentication Returns true if we can authenticate at all, false otherwise.
-func (c *Credentials) HasAuthentication() bool {
+func (c *SccCredentials) HasAuthentication() bool {
 	configuredType := c.CredentialsType()
 	if configuredType != CredentialTypeUnconfigured {
 		return true
@@ -60,7 +60,7 @@ func (c *Credentials) HasAuthentication() bool {
 
 // Token returns the current system used to detect duplicated systems. This
 // token gets rotated on each non read operation.
-func (c *Credentials) Token() (string, error) {
+func (c *SccCredentials) Token() (string, error) {
 	if c.token == "" {
 		return "", errors.New("the token is not currently set")
 	}
@@ -69,7 +69,7 @@ func (c *Credentials) Token() (string, error) {
 }
 
 // UpdateToken is called when a token has changed
-func (c *Credentials) UpdateToken(newToken string) error {
+func (c *SccCredentials) UpdateToken(newToken string) error {
 	if newToken == "" {
 		return errors.New("cannot update token to empty string")
 	}
@@ -80,7 +80,7 @@ func (c *Credentials) UpdateToken(newToken string) error {
 }
 
 // Login returns the username and password
-func (c *Credentials) Login() (string, string, error) {
+func (c *SccCredentials) Login() (string, string, error) {
 	configuredType := c.CredentialsType()
 	if configuredType != CredentialTypeLogin && configuredType != CredentialTypeBoth {
 		return "", "", errors.New("cannot use login credentials when they are not properly configured")
@@ -90,7 +90,7 @@ func (c *Credentials) Login() (string, string, error) {
 }
 
 // SetLogin updates the saved username and password
-func (c *Credentials) SetLogin(newLogin string, newPassword string) error {
+func (c *SccCredentials) SetLogin(newLogin string, newPassword string) error {
 	if newLogin == "" || newPassword == "" {
 		errorMessage := ""
 		if newLogin == "" {
@@ -111,8 +111,8 @@ func (c *Credentials) SetLogin(newLogin string, newPassword string) error {
 	return nil
 }
 
-func NewCredentials(login string, password string) Credentials {
-	credential := Credentials{
+func NewCredentials(login string, password string) SccCredentials {
+	credential := SccCredentials{
 		login:    login,
 		password: password,
 	}
