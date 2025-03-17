@@ -8,14 +8,14 @@ when the helm chart is installed. After that time, users should use the CRDs - p
 apiVersion: scc.cattle.io/v1
 kind: RegistrationRequest
 metadata:
-  name: {{ .Release.Name }}
-data:
+  name: rancher-{{ .Release.Name }}-{{ .Release.Revision }}
+spec:
   mode: {{ include "registration.mode" . | quote }}
   {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
-  registrationCode: "{{ .Values.registration.regCodeRef | default "initial-scc-registration-code:regCode" }}" #configmap field using secret value
+  registrationCodeSecretRef: "{{ .Values.registration.regCodeRef | default "rancher-scc-registration-code:regCode" }}" #configmap field using secret value
   {{- end }}
   {{- if or .Values.registration.certificate .Values.registration.certificateRef }}
-  registrationCertificate: "{{ .Values.registration.certificateRef | default "initial-scc-registration-certificate:certificate" }}" #configmap field using secret value
+  registrationCertificateSecretRef: "{{ .Values.registration.certificateRef | default "rancher-scc-registration-certificate:certificate" }}" #configmap field using secret value
   {{- end }}
 {{- else -}}
 {{- if .Values.registration.regCode }}
@@ -23,7 +23,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: initial-scc-registration-code
+  name: rancher-scc-registration-code
 data:
   regCode: {{ .Values.registration.regCode }}
 {{- end -}}
@@ -32,7 +32,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: initial-scc-registration-certificate
+  name: rancher-scc-registration-certificate
 data:
   certificate: {{ .Values.registration.certificate }}
 {{- end -}}

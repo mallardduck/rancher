@@ -88,9 +88,9 @@ add below linux tolerations to workloads could be scheduled to those linux nodes
 {{- end -}}
 
 {{- define "registration.mode" -}}
-    {{- if .Values.registration.mode }}
+    {{- if .Values.registration.mode -}}
         {{ .Values.registration.mode }}
-    {{- else }}
-        "online"
-    {{- end }}
+    {{- else -}}
+        online
+    {{- end -}}
 {{- end -}}
