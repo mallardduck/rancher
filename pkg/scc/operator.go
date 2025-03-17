@@ -53,8 +53,9 @@ func (so *sccOperator) maybeFirstInit() error {
 	configMap, err := so.core.Core().V1().ConfigMap().Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
 	if err == nil {
 		// Verify the expected fields are on the config map
-		mode, ok := configMap.Data["mode"]
-		if !ok || (mode != "offline" && mode != "online") {
+		modeString, ok := configMap.Data["mode"]
+		mode := v1.RegistrationMode(modeString)
+		if !ok || (mode != v1.Online && mode != v1.Offline) {
 			// TODO bail here if OK is bad
 			// Just unclear if we should: a) error, or b) silent error (letting `FirstSCCStart` get updated).
 		}
@@ -64,9 +65,9 @@ func (so *sccOperator) maybeFirstInit() error {
 
 		secretName := ""
 		credOk := true
-		if mode == "online" {
+		if mode == v1.Online {
 			secretName, credOk = configMap.Data["regCodeRef"]
-		} else if mode == "offline" {
+		} else {
 			secretName, credOk = configMap.Data["certificateRef"]
 		}
 		if !credOk {
