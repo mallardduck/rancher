@@ -5,6 +5,7 @@ import (
 	"fmt"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/settings"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 
@@ -101,23 +102,24 @@ func (so *sccOperator) maybeFirstInit() error {
 	if secret != nil {
 		newSecret := *secret
 		if mode == "online" {
-			regCode, hasRegCodeKey := newSecret.Data["regCode"]
+			_, hasRegCodeKey := newSecret.Data["regCode"]
 			if !hasRegCodeKey {
 				// TODO bail
 				errorMsg := fmt.Sprintf("cannot find the expected regCode key on, %s", secret.Name)
 				logrus.Error(errorMsg)
 				return fmt.Errorf(errorMsg)
 			}
-			newRegistrationRequest.Spec.RegistrationCode = string(regCode)
 		} else if mode == "offline" {
-			regCode, hasCertKey := secret.Data["certificate"]
+			_, hasCertKey := secret.Data["certificate"]
 			if !hasCertKey {
 				// TODO bail
 				errorMsg := fmt.Sprintf("cannot find the expected certificate key on, %s", secret.Name)
 				logrus.Error(errorMsg)
 				return fmt.Errorf(errorMsg)
 			}
-			newRegistrationRequest.Spec.RegistrationCode = string(regCode)
+		}
+		newRegistrationRequest.Spec.RegistrationCodeSecretRef = &corev1.SecretReference{
+			Name: secretName,
 		}
 	}
 
