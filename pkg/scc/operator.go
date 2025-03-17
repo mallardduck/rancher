@@ -109,6 +109,8 @@ func (so *sccOperator) maybeFirstInit() error {
 			return err
 		}
 	}
+
+	return nil
 }
 
 func Setup(
