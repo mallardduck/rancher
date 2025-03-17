@@ -46,6 +46,10 @@ type RegistrationRequestStatus struct {
 // +kubebuilder:validation:Enum=online;offline
 type RegistrationMode string
 
+func (rm *RegistrationMode) Valid() bool {
+	return *rm == Online || *rm == Offline
+}
+
 const (
 	Online  RegistrationMode = "online"
 	Offline RegistrationMode = "offline"

@@ -44,7 +44,8 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 // and if they need to be processed into a new `RegistrationRequest` (used during first boot ever)
 func (so *sccOperator) maybeFirstInit() error {
 	logrus.Info("SCC controller MaybeFirstInit")
-	if strings.EqualFold(settings.FirstSCCStart.Get(), "false") {
+	if strings.EqualFold(settings.SCCFirstStart.Get(), "false") {
+		logrus.Warn("Skipping the SCC controller first start.")
 		return nil
 	}
 
@@ -52,61 +53,83 @@ func (so *sccOperator) maybeFirstInit() error {
 	// Check if the `cattle-system:initial-scc-registration` ConfigMap exists
 	// If it does not, then we simply proceed and mark the setting as false
 	configMap, err := so.core.Core().V1().ConfigMap().Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
-	if err == nil {
-		// Verify the expected fields are on the config map
-		modeString, ok := configMap.Data["mode"]
-		mode := v1.RegistrationMode(modeString)
-		if !ok || (mode != v1.Online && mode != v1.Offline) {
-			// TODO bail here if OK is bad
-			// Just unclear if we should: a) error, or b) silent error (letting `FirstSCCStart` get updated).
-		}
+	if err != nil {
+		logrus.Warn("Cannot find initial-scc-registration configmap; it will be skipped")
+		return nil
+	}
 
-		newRegistrationRequest := &v1.RegistrationRequest{}
-		newRegistrationRequest.Spec.Mode = mode
+	// Verify the expected fields are on the config map
+	modeString, ok := configMap.Data["mode"]
+	mode := v1.RegistrationMode(modeString)
+	if !ok || !mode.Valid() {
+		errorMsg := "cannot find the SCC registration initilizer configmap"
+		if ok && !mode.Valid() {
+			errorMsg = fmt.Sprintf("the configmap does not have a valid mode set")
+		}
+		// TODO bail here if OK is bad
+		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
+		logrus.Error(errorMsg)
+		return fmt.Errorf(errorMsg)
+	}
 
-		secretName := ""
-		credOk := true
-		if mode == v1.Online {
-			secretName, credOk = configMap.Data["regCodeRef"]
-		} else {
-			secretName, credOk = configMap.Data["certificateRef"]
-		}
-		if !credOk {
-			// TODO bail here if OK is bad
-			// Just unclear if we should: a) error, or b) silent error (letting `FirstSCCStart` get updated).
-		}
+	newRegistrationRequest := &v1.RegistrationRequest{}
+	newRegistrationRequest.Spec.Mode = mode
 
-		secret, err := so.core.Core().V1().Secret().Get("cattle-system", secretName, metav1.GetOptions{})
-		if err != nil {
-			// TODO bail here if OK is bad
-			// Just unclear if we should: a) error, or b) silent error (letting `FirstSCCStart` get updated).
-		}
-		if secret != nil {
-			newSecret := *secret
-			if mode == "online" {
-				regCode, hasRegCodeKey := newSecret.Data["regCode"]
-				if !hasRegCodeKey {
-					// TODO bail
-				}
-				newRegistrationRequest.Spec.RegistrationCode = string(regCode)
-			} else if mode == "offline" {
-				regCode, hasRegCodeKey := secret.Data["certificate"]
-				if !hasRegCodeKey {
-					// TODO bail
-				}
-				newRegistrationRequest.Spec.RegistrationCode = string(regCode)
+	credentialValueKey := ""
+	if mode == v1.Online {
+		credentialValueKey = "regCodeRef"
+	} else {
+		credentialValueKey = "certificateRef"
+	}
+
+	secretName, credOk := configMap.Data[credentialValueKey]
+	if !credOk {
+		// TODO bail here if OK is bad
+		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
+		errorMsg := fmt.Sprintf("cannot find the credential value key %s", credentialValueKey)
+		logrus.Error(errorMsg)
+		return fmt.Errorf(errorMsg)
+	}
+
+	secret, err := so.core.Core().V1().Secret().Get("cattle-system", secretName, metav1.GetOptions{})
+	if err != nil {
+		// TODO bail here if OK is bad
+		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
+		logrus.Error(err)
+		return err
+	}
+	if secret != nil {
+		newSecret := *secret
+		if mode == "online" {
+			regCode, hasRegCodeKey := newSecret.Data["regCode"]
+			if !hasRegCodeKey {
+				// TODO bail
+				errorMsg := fmt.Sprintf("cannot find the expected regCode key on, %s", secret.Name)
+				logrus.Error(errorMsg)
+				return fmt.Errorf(errorMsg)
 			}
-		}
-
-		_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
-		if err != nil {
-			// TODO bail
+			newRegistrationRequest.Spec.RegistrationCode = string(regCode)
+		} else if mode == "offline" {
+			regCode, hasCertKey := secret.Data["certificate"]
+			if !hasCertKey {
+				// TODO bail
+				errorMsg := fmt.Sprintf("cannot find the expected certificate key on, %s", secret.Name)
+				logrus.Error(errorMsg)
+				return fmt.Errorf(errorMsg)
+			}
+			newRegistrationRequest.Spec.RegistrationCode = string(regCode)
 		}
 	}
 
+	_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
+	if err != nil {
+		logrus.Error("Cannot create registration request")
+		return err
+	}
+
 	// At very end, we will set it to false so this doesn't run again
-	if !strings.EqualFold(settings.FirstSCCStart.Get(), "false") {
-		if err := settings.FirstSCCStart.Set("false"); err != nil {
+	if !strings.EqualFold(settings.SCCFirstStart.Get(), "false") {
+		if err := settings.SCCFirstStart.Set("false"); err != nil {
 			return err
 		}
 	}
