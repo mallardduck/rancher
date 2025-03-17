@@ -38,6 +38,7 @@ spec:
           spec:
             properties:
               mode:
+                default: online
                 enum:
                 - online
                 - offline

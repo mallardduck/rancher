@@ -32,6 +32,7 @@ type RegistrationRequest struct {
 }
 
 type RegistrationRequestSpec struct {
+	// +default:value="online"
 	Mode                    RegistrationMode `json:"mode"` // Either offline or online
 	RegistrationCode        string           `json:"registrationCode,omitempty"`
 	RegistrationCertificate []byte           `json:"registrationCertificate,omitempty"`
