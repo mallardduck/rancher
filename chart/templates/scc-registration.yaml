@@ -12,10 +12,10 @@ metadata:
 data:
   mode: {{ include "registration.mode" . | quote }}
   {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
-  regCodeRef: "{{ .Values.registration.regCodeRef | default "initial-scc-registration-code:regCode" }}" #configmap field using secret value
+  registrationCode: "{{ .Values.registration.regCodeRef | default "initial-scc-registration-code:regCode" }}" #configmap field using secret value
   {{- end }}
   {{- if or .Values.registration.certificate .Values.registration.certificateRef }}
-  certificateRef: "{{ .Values.registration.certificateRef | default "initial-scc-registration-certificate:certificate" }}" #configmap field using secret value
+  registrationCertificate: "{{ .Values.registration.certificateRef | default "initial-scc-registration-certificate:certificate" }}" #configmap field using secret value
   {{- end }}
 {{- else -}}
 {{- if .Values.registration.regCode }}
