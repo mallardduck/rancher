@@ -43,6 +43,7 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 // maybeFirstInit will check if the initial `RegistrationRequest` seeding values exist
 // and if they need to be processed into a new `RegistrationRequest` (used during first boot ever)
 func (so *sccOperator) maybeFirstInit() error {
+	logrus.Info("SCC controller MaybeFirstInit")
 	if strings.EqualFold(settings.FirstSCCStart.Get(), "false") {
 		return nil
 	}
@@ -117,6 +118,7 @@ func Setup(
 	ctx context.Context,
 	wContext *wrangler.Context,
 ) error {
+	logrus.Info("Starting SCC Operator")
 	initOperator, err := setup(wContext)
 	if err != nil {
 		return fmt.Errorf("error setting up scc operator: %s", err.Error())

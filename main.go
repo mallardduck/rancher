@@ -213,6 +213,7 @@ func run(cli *cli.Context, cfg rancher.Options) error {
 	os.Unsetenv("KUBECONFIG")
 
 	server, err := rancher.New(ctx, clientConfig, &cfg)
+	logrus.Infof("Rancher instance created...starting next")
 	if err != nil {
 		return err
 	}
