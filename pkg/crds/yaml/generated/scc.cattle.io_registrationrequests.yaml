@@ -12,7 +12,7 @@ spec:
     listKind: RegistrationRequestList
     plural: registrationrequests
     singular: registrationrequest
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1
     schema:
