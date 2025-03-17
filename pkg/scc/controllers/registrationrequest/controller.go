@@ -33,9 +33,9 @@ func Register(
 	registrationRequests.OnChange(ctx, "registrationRequests", controller.OnRegistrationRequestChange)
 }
 
-func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
-	logrus.Infof("[registrationrequest-controller]: Received registrationRequest %q", name)
-	logrus.Info("[registrationrequest-controller]: RegistrationRequest ", registrationRequest)
+func (h *handler) OnRegistrationRequestChange(key string, registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
+	logrus.Infof("[scc.registrationrequest-controller]: Received registrationRequest %q", key)
+	logrus.Info("[scc.registrationrequest-controller]: RegistrationRequest ", registrationRequest)
 	// TODO: handle the logic of what happens when one of these is created
 	// Gist being:
 	// 1. Verify RegistrationRequest is not already fulfilled or expired,
