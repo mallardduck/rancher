@@ -20,14 +20,14 @@ func TestNewCredentials(t *testing.T) {
 }
 
 func TestSetLogin(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		login:    "",
 		password: "",
 	}
 	err := credential.SetLogin("newLogin", "newPassword")
 	assert.NoError(t, err)
 
-	credential = Credentials{
+	credential = SccCredentials{
 		login:    "",
 		password: "",
 	}
@@ -36,7 +36,7 @@ func TestSetLogin(t *testing.T) {
 }
 
 func TestSetLoginEmptyFields(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		login:    "",
 		password: "",
 	}
@@ -45,7 +45,7 @@ func TestSetLoginEmptyFields(t *testing.T) {
 }
 
 func TestSetLoginMultipleErrors(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		login:    "",
 		password: "",
 	}
@@ -57,21 +57,21 @@ func TestSetLoginMultipleErrors(t *testing.T) {
 }
 
 func TestHasAuthentication(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		token:    "token",
 		login:    "login",
 		password: "password",
 	}
 	assert.True(t, credential.HasAuthentication())
 
-	credential = Credentials{
+	credential = SccCredentials{
 		token:    "",
 		login:    "login",
 		password: "password",
 	}
 	assert.True(t, credential.HasAuthentication())
 
-	credential = Credentials{
+	credential = SccCredentials{
 		token:    "",
 		login:    "",
 		password: "",
@@ -80,7 +80,7 @@ func TestHasAuthentication(t *testing.T) {
 }
 
 func TestToken(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		token:    "token",
 		login:    "",
 		password: "",
@@ -98,7 +98,7 @@ func TestToken(t *testing.T) {
 }
 
 func TestTokenErrors(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		token:    "",
 		login:    "",
 		password: "",
@@ -111,7 +111,7 @@ func TestTokenErrors(t *testing.T) {
 }
 
 func TestUpdateTokenErrors(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		token:    "",
 		login:    "",
 		password: "",
@@ -121,35 +121,35 @@ func TestUpdateTokenErrors(t *testing.T) {
 }
 
 func TestCredentialsType(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		token:    "",
 		login:    "login",
 		password: "password",
 	}
 	assert.Equal(t, CredentialTypeLogin, credential.CredentialsType())
 
-	credential = Credentials{
+	credential = SccCredentials{
 		token:    "",
 		login:    "login",
 		password: "",
 	}
 	assert.Equal(t, CredentialTypeUnconfigured, credential.CredentialsType())
 
-	credential = Credentials{
+	credential = SccCredentials{
 		token:    "token",
 		login:    "",
 		password: "",
 	}
 	assert.Equal(t, CredentialTypeToken, credential.CredentialsType())
 
-	credential = Credentials{
+	credential = SccCredentials{
 		token:    "token",
 		login:    "login",
 		password: "",
 	}
 	assert.Equal(t, CredentialTypeToken, credential.CredentialsType())
 
-	credential = Credentials{
+	credential = SccCredentials{
 		token:    "",
 		login:    "",
 		password: "",
@@ -161,7 +161,7 @@ func TestCredentialsEmpty(t *testing.T) {
 	credential := NewCredentials("", "")
 	assert.Equal(t, CredentialTypeUnconfigured, credential.CredentialsType())
 
-	emptyCreds := Credentials{
+	emptyCreds := SccCredentials{
 		token:    "",
 		login:    "",
 		password: "",
@@ -171,7 +171,7 @@ func TestCredentialsEmpty(t *testing.T) {
 }
 
 func TestLogin(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		token:    "",
 		login:    "user1",
 		password: "pass1",
@@ -193,7 +193,7 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLoginErrors(t *testing.T) {
-	credential := Credentials{
+	credential := SccCredentials{
 		token:    "",
 		login:    "",
 		password: "",
