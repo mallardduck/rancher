@@ -254,14 +254,6 @@ func New(ctx context.Context, clientConfg clientcmd.ClientConfig, opts *Options)
 		return nil
 	})
 
-	if features.RancherSCCRegistrationExtension.Enabled() {
-		logrus.Info("[rancher::New] starting RancherSCCRegistrationExtension")
-		err := scc.Setup(ctx, wranglerContext)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &Rancher{
 		Auth: authServer.Authenticator.Chain(
 			auditFilter),
