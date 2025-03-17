@@ -45,6 +45,11 @@ type RegistrationRequestStatus struct {
 // +kubebuilder:validation:Enum=online;offline
 type RegistrationMode string
 
+const (
+	Online  RegistrationMode = "online"
+	Offline RegistrationMode = "offline"
+)
+
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:resource:scope=Cluster
