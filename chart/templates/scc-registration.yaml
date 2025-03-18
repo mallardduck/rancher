@@ -27,7 +27,7 @@ data:
 apiVersion: scc.cattle.io/v1
 kind: RegistrationRequest
 metadata:
-  name: rancher-{{ .Release.Name }}-{{ .Release.Revision }}
+  name: rancher-chart-{{ .Release.Name }}-{{ .Release.Revision }}
 spec:
   mode: {{ include "registration.mode" . | quote }}
   {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
