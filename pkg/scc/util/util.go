@@ -1,4 +1,4 @@
-package scc
+package util
 
 import (
 	"fmt"
