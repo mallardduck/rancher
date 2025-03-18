@@ -75,6 +75,10 @@ spec:
               lastValidatedTS:
                 type: string
               mode:
+                description: RegistrationMode enforces the valid registration modes
+                enum:
+                - online
+                - offline
                 type: string
               valid:
                 type: boolean

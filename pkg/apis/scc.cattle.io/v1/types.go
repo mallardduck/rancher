@@ -75,7 +75,7 @@ type RegistrationSpec struct {
 }
 
 type RegistrationStatus struct {
-	Mode            string                              `json:"mode"`
+	Mode            RegistrationMode                    `json:"mode"`
 	Valid           bool                                `json:"valid"`
 	LastValidatedTS string                              `json:"lastValidatedTS"`
 	ValidUntilTS    string                              `json:"validUntilTS"`
