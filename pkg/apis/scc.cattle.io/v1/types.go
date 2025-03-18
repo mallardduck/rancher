@@ -22,6 +22,7 @@ const (
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RegistrationRequest struct {
@@ -61,6 +62,7 @@ const (
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Registration struct {
