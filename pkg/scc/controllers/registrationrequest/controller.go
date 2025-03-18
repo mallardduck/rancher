@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/rancher/rancher/pkg/scc"
+	"github.com/rancher/rancher/pkg/scc/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
@@ -72,7 +72,7 @@ func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *
 func (h *handler) processOnlineRegistration(registrationRequest *v1.RegistrationRequest) error {
 	logrus.Info("[scc.registrationrequest-controller]: online mode ")
 	// 1. Verify the secret ref name
-	secretName := scc.RegCodeSecretName
+	secretName := util.RegCodeSecretName
 	if registrationRequest.Spec.RegistrationCodeSecretRef != nil {
 		secretName = registrationRequest.Spec.RegistrationCodeSecretRef.Name
 	}
@@ -83,9 +83,9 @@ func (h *handler) processOnlineRegistration(registrationRequest *v1.Registration
 		return err
 	}
 
-	_, ok := regSecret.Data[scc.RegCodeSecretKey]
+	_, ok := regSecret.Data[util.RegCodeSecretKey]
 	if !ok {
-		return errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, scc.RegCodeSecretKey))
+		return errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, util.RegCodeSecretKey))
 	}
 
 	// 2. Attempt SCC phone home with Online mode OR process the offline mode
