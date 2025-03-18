@@ -5,6 +5,7 @@ import (
 	"fmt"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/settings"
+	"github.com/rancher/wrangler/v3/pkg/start"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
@@ -118,6 +119,11 @@ func Setup(
 		ctx,
 		initOperator.sccFactory.Scc().V1().Registration(),
 	)
+
+	// TODO: verify this is correct
+	if err := start.All(ctx, 2, initOperator.sccFactory); err != nil {
+		logrus.Fatalf("Error starting: %s", err.Error())
+	}
 
 	// TODO: Some where in operator, or in registration controller, the current Registration needs to be revalidated every 24 hours
 
