@@ -8,15 +8,14 @@ import (
 )
 
 const (
-	RegistrationRequestConditionUnprocessed condition.Cond = "Unprocessed"
-	RegistrationRequestConditionReady       condition.Cond = "Ready"
-	RegistrationRequestConditionFailed      condition.Cond = "Failed"
-	RegistrationConditionHealthy            condition.Cond = "Healthy"
-	RegistrationConditionPending            condition.Cond = "Pending"
-	RegistrationConditionExpired            condition.Cond = "Expired"
-	RegistrationConditionCloned             condition.Cond = "Cloned"
-	RegistrationConditionTimeout            condition.Cond = "Timeout"
-	RegistrationConditionFailed             condition.Cond = "Failed"
+	RegistrationRequestConditionProcessing condition.Cond = "Processing"
+	RegistrationRequestConditionFailed     condition.Cond = "Failed"
+	RegistrationConditionHealthy           condition.Cond = "Healthy"
+	RegistrationConditionPending           condition.Cond = "Pending"
+	RegistrationConditionExpired           condition.Cond = "Expired"
+	RegistrationConditionCloned            condition.Cond = "Cloned"
+	RegistrationConditionTimeout           condition.Cond = "Timeout"
+	RegistrationConditionFailed            condition.Cond = "Failed"
 )
 
 // +genclient

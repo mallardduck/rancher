@@ -51,20 +51,26 @@ func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *
 		logrus.Info("[scc.registrationrequest-controller]: RegistrationRequest already processed")
 		return registrationRequest, nil
 	}
+	err := h.setProcessingCondition(registrationRequest)
+	if err != nil {
+		return nil, err
+	}
+
 	// 2. Verify contents of RegistrationRequest (mode and creds),
 	if registrationRequest.Spec.Mode == v1.Online {
 		err := h.processOnlineRegistration(registrationRequest)
 		if err != nil {
-			return nil, err
+			return h.setReconcilingCondition(registrationRequest, err)
 		}
 	} else {
 		err := h.processOfflineRegistration(registrationRequest)
 		if err != nil {
-			return nil, err
+			return h.setReconcilingCondition(registrationRequest, err)
 		}
 	}
 
-	// 4. At the end of either process the current RegistrationRequest is either: a) fulfilled, b) expired or c) failed (retry?)
+	// 4. At the end of either process the current RegistrationRequest is either:
+	// 		a) fulfilled, b) expired or c) failed (retry?)
 	// 4+. If it was a success, then a new Registration is created (and the old one deleted or marked as not current?)
 	return registrationRequest, nil
 }
@@ -93,8 +99,20 @@ func (h *handler) processOnlineRegistration(registrationRequest *v1.Registration
 	return nil
 }
 
+func (h *handler) setProcessingCondition(registrationRequest *v1.RegistrationRequest) error {
+	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, true)
+	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Processing")
+
+	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
+	return err
+}
+
 func (h *handler) processOfflineRegistration(registrationRequest *v1.RegistrationRequest) error {
 	// TODO implement offline mechanism
 	logrus.Info("[scc.registrationrequest-controller]: offline mode ")
 	return nil
+}
+
+func (h *handler) setReconcilingCondition(request *v1.RegistrationRequest, originalErr error) (*v1.RegistrationRequest, error) {
+	return request, originalErr
 }
