@@ -40,8 +40,9 @@ type RegistrationRequestSpec struct {
 }
 
 type RegistrationRequestStatus struct {
-	Conditions         []genericcondition.GenericCondition `json:"conditions,omitempty"`
-	RequestProcessedTS string                              `json:"requestProcessedTS"`
+	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
+	RequestProcessedTS         string                              `json:"requestProcessedTS"`
+	OfflineRegistrationRequest *corev1.SecretReference             `json:"offlineRegistrationRequest,omitempty"`
 }
 
 // RegistrationMode enforces the valid registration modes
