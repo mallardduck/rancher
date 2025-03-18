@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
+	"github.com/rancher/rancher/pkg/scc/util"
 	"github.com/rancher/rancher/pkg/settings"
 	"github.com/rancher/wrangler/v3/pkg/start"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +58,7 @@ func (so *sccOperator) maybeFirstInit() error {
 	if err != nil {
 		logrus.Warn("Cannot find initial-scc-registration configmap; it will be skipped")
 	} else {
-		secretName, mode, err := ValidateInitializingConfigMap(configMap)
+		secretName, mode, err := util.ValidateInitializingConfigMap(configMap)
 		if err != nil {
 			return err
 		}
