@@ -2,10 +2,15 @@ package registrationrequest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/SUSE/connect-ng/pkg/connection"
+	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/pkg/errors"
+	"github.com/rancher/rancher/pkg/scc/suseconnect"
 	"github.com/rancher/rancher/pkg/scc/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
@@ -53,7 +58,7 @@ func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *
 	}
 	err := h.setProcessingCondition(registrationRequest)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("[scc.registrationrequest-controller]: setting condition failed;" + err.Error())
 	}
 
 	// 2. Verify contents of RegistrationRequest (mode and creds),
@@ -89,12 +94,44 @@ func (h *handler) processOnlineRegistration(registrationRequest *v1.Registration
 		return err
 	}
 
-	_, ok := regSecret.Data[util.RegCodeSecretKey]
+	regCode, ok := regSecret.Data[util.RegCodeSecretKey]
 	if !ok {
 		return errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, util.RegCodeSecretKey))
 	}
 
-	// 2. Attempt SCC phone home with Online mode OR process the offline mode
+	// 2. Attempt SCC phone home with Online mode
+	sccConnection := suseconnect.DefaultRancherConnection()
+	err = h.verifyBasicSubscription(registrationRequest, sccConnection, string(regCode))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *handler) verifyBasicSubscription(registrationRequest *v1.RegistrationRequest, sccConnection *connection.ApiConnection, regCode string) error {
+	subscriptionInfoResponse, err := suseconnect.SubscriptionInfo(sccConnection, regCode)
+	if err != nil {
+		return err
+	}
+
+	subscriptionInfo := registration.SubscriptionInfo{}
+	err = json.Unmarshal(subscriptionInfoResponse, &subscriptionInfo)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	if subscriptionInfo.StartsAt.After(now) || subscriptionInfo.ExpiresAt.Before(now) {
+		return errors.New(fmt.Sprintf("subscription info is out of date"))
+	}
+
+	registrationRequest.Status.SubscriptionInfo = string(subscriptionInfoResponse)
+	v1.RegistrationRequestConditionSubscriptionInfoCollected.SetStatusBool(registrationRequest, true)
+	_, err = h.registrationRequests.UpdateStatus(registrationRequest)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -114,5 +151,66 @@ func (h *handler) processOfflineRegistration(registrationRequest *v1.Registratio
 }
 
 func (h *handler) setReconcilingCondition(request *v1.RegistrationRequest, originalErr error) (*v1.RegistrationRequest, error) {
+	logrus.Info("[scc.registrationrequest-controller]: set reconciling condition")
+	logrus.Error(originalErr)
+
+	// TODO implement backoff in here?
+	err := h.setFailedCondition(request)
+	if err != nil {
+		return request, errors.New(originalErr.Error() + err.Error())
+	}
+
 	return request, originalErr
+}
+
+// TODO: use this when we implement retry interval and timeout fully
+// TODO: pass error to this and set the message
+func (h *handler) setBackoffCondition(registrationRequest *v1.RegistrationRequest) error {
+	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
+	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Completed")
+
+	v1.RegistrationRequestConditionBackoff.SetStatusBool(registrationRequest, true)
+	v1.RegistrationRequestConditionBackoff.SetMessageIfBlank(registrationRequest, "Processing failed for now, will retry soon.")
+
+	// TODO: actually set the message to something that makes sense based on the error
+	v1.RegistrationRequestConditionError.SetStatusBool(registrationRequest, true)
+	v1.RegistrationRequestConditionError.SetMessageIfBlank(registrationRequest, "TODO")
+
+	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
+	return err
+}
+
+// TODO: pass error to this and set the message
+func (h *handler) setFailedCondition(registrationRequest *v1.RegistrationRequest) error {
+	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
+	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Completed")
+
+	v1.RegistrationRequestConditionCompleted.SetStatusBool(registrationRequest, false)
+	v1.RegistrationRequestConditionCompleted.SetMessageIfBlank(registrationRequest, "Failed to process RegistrationRequest")
+
+	// Failed communicates that it won't be retried, and error communicates the logged error
+	// TODO: actually set the message to something that makes sense based on the error
+	v1.RegistrationRequestConditionFailed.SetStatusBool(registrationRequest, true)
+
+	// TODO: actually set the message to something that makes sense based on the error
+	v1.RegistrationRequestConditionError.SetStatusBool(registrationRequest, true)
+	v1.RegistrationRequestConditionError.SetMessageIfBlank(registrationRequest, "TODO")
+
+	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
+	return err
+}
+
+func (h *handler) setSuccessCondition(registrationRequest *v1.RegistrationRequest) error {
+	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
+	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Completed")
+
+	v1.RegistrationRequestConditionCompleted.SetStatusBool(registrationRequest, true)
+	v1.RegistrationRequestConditionCompleted.SetMessageIfBlank(registrationRequest, "Success")
+
+	if v1.RegistrationConditionFailed.GetStatus(registrationRequest) != "" {
+		v1.RegistrationRequestConditionFailed.SetStatusBool(registrationRequest, false)
+	}
+
+	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
+	return err
 }

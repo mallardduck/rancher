@@ -1,6 +1,8 @@
 package suseconnect
 
-import "github.com/SUSE/connect-ng/pkg/connection"
+import (
+	"github.com/SUSE/connect-ng/pkg/connection"
+)
 
 func DefaultConnectionOptions() connection.Options {
 	// TODO: I believe this is creating the options for the API "app"
@@ -12,4 +14,22 @@ func DefaultConnectionOptions() connection.Options {
 func DefaultRancherConnection() *connection.ApiConnection {
 	options := DefaultConnectionOptions()
 	return connection.New(options, connection.NoCredentials{})
+}
+
+func SubscriptionInfo(conn *connection.ApiConnection, regCode string) ([]byte, error) {
+	var subinfoResponse []byte
+	var err error
+	request, err := conn.BuildRequest("GET", "/connect/subscriptions/info", nil)
+	if err != nil {
+		return subinfoResponse, err
+	}
+
+	connection.AddRegcodeAuth(request, regCode)
+
+	subinfoResponse, err = conn.Do(request)
+	if err != nil {
+		return subinfoResponse, err
+	}
+
+	return subinfoResponse, nil
 }
