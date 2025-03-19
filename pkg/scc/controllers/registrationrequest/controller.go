@@ -155,7 +155,7 @@ func (h *handler) setReconcilingCondition(request *v1.RegistrationRequest, origi
 	logrus.Error(originalErr)
 
 	// TODO implement backoff in here?
-	err := h.setFailedCondition(request)
+	err := h.setFailedCondition(request, originalErr)
 	if err != nil {
 		return request, errors.New(originalErr.Error() + err.Error())
 	}
@@ -172,32 +172,23 @@ func (h *handler) setBackoffCondition(registrationRequest *v1.RegistrationReques
 	v1.RegistrationRequestConditionBackoff.SetStatusBool(registrationRequest, true)
 	v1.RegistrationRequestConditionBackoff.SetMessageIfBlank(registrationRequest, "Processing failed for now, will retry soon.")
 
-	// TODO: actually set the message to something that makes sense based on the error
-	v1.RegistrationRequestConditionError.SetStatusBool(registrationRequest, true)
-	v1.RegistrationRequestConditionError.SetMessageIfBlank(registrationRequest, "TODO")
-
 	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
 	return err
 }
 
 // TODO: pass error to this and set the message
-func (h *handler) setFailedCondition(registrationRequest *v1.RegistrationRequest) error {
+func (h *handler) setFailedCondition(registrationRequest *v1.RegistrationRequest, originalError error) error {
 	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
-	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Completed")
-
 	v1.RegistrationRequestConditionCompleted.SetStatusBool(registrationRequest, false)
 	v1.RegistrationRequestConditionCompleted.SetMessageIfBlank(registrationRequest, "Failed to process RegistrationRequest")
 
 	// Failed communicates that it won't be retried, and error communicates the logged error
 	// TODO: actually set the message to something that makes sense based on the error
 	v1.RegistrationRequestConditionFailed.SetStatusBool(registrationRequest, true)
-
-	// TODO: actually set the message to something that makes sense based on the error
-	v1.RegistrationRequestConditionError.SetStatusBool(registrationRequest, true)
-	v1.RegistrationRequestConditionError.SetMessageIfBlank(registrationRequest, "TODO")
+	v1.RegistrationRequestConditionFailed.SetError(registrationRequest, "", originalError)
 
 	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
-	return err
+	return errors.New(originalError.Error() + err.Error())
 }
 
 func (h *handler) setSuccessCondition(registrationRequest *v1.RegistrationRequest) error {

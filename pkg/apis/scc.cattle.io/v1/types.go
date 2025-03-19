@@ -10,7 +10,6 @@ import (
 const (
 	RegistrationRequestConditionBackoff                   condition.Cond = "Backoff"
 	RegistrationRequestConditionCompleted                 condition.Cond = "Completed"
-	RegistrationRequestConditionError                     condition.Cond = "Error"
 	RegistrationRequestConditionFailed                    condition.Cond = "Failed"
 	RegistrationRequestConditionProcessing                condition.Cond = "Processing"
 	RegistrationRequestConditionSubscriptionInfoCollected condition.Cond = "SubscriptionInfoCollected"
