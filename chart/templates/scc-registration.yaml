@@ -52,15 +52,16 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: initial-scc-registration
+  namespace: {{ .Release.Namespace }}
   labels: {{ include "rancher.labels" . | nindent 4 }}
     app.kubernetes.io/part-of: "rancher"
 data:
   mode: {{ include "registration.mode" . | quote }}
   {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
-  regCodeRef: "{{ .Values.registration.regCodeRef | default "initial-scc-registration-code:regCode" }}" #configmap field using secret value
+  regCodeRef: "{{ .Values.registration.regCodeRef | default "rancher-scc-registration-code" }}" #configmap field using secret value
   {{- end }}
   {{- if or .Values.registration.certificate .Values.registration.certificateRef }}
-  certificateRef: "{{ .Values.registration.certificateRef | default "initial-scc-registration-certificate:certificate" }}" #configmap field using secret value
+  certificateRef: "{{ .Values.registration.certificateRef | default "rancher-scc-registration-certificate" }}" #configmap field using secret value
   {{- end }}
 {{- end -}}
 {{ end -}}

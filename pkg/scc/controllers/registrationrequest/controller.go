@@ -56,14 +56,14 @@ func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *
 		logrus.Info("[scc.registrationrequest-controller]: RegistrationRequest already processed")
 		return registrationRequest, nil
 	}
-	err := h.setProcessingCondition(registrationRequest)
+	registrationRequest, err := h.setProcessingCondition(registrationRequest)
 	if err != nil {
 		return nil, errors.New("[scc.registrationrequest-controller]: setting condition failed;" + err.Error())
 	}
 
 	// 2. Verify contents of RegistrationRequest (mode and creds),
 	if registrationRequest.Spec.Mode == v1.Online {
-		err := h.processOnlineRegistration(registrationRequest)
+		registrationRequest, err := h.processOnlineRegistration(registrationRequest)
 		if err != nil {
 			return h.setReconcilingCondition(registrationRequest, err)
 		}
@@ -80,7 +80,7 @@ func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *
 	return registrationRequest, nil
 }
 
-func (h *handler) processOnlineRegistration(registrationRequest *v1.RegistrationRequest) error {
+func (h *handler) processOnlineRegistration(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
 	logrus.Info("[scc.registrationrequest-controller]: online mode ")
 	// 1. Verify the secret ref name
 	secretName := util.RegCodeSecretName
@@ -89,59 +89,66 @@ func (h *handler) processOnlineRegistration(registrationRequest *v1.Registration
 	}
 
 	// 2. Verify RegistrationRequest creds,
-	regSecret, err := h.secrets.Get("", secretName, metav1.GetOptions{})
+	regSecret, err := h.secrets.Get("cattle-system", secretName, metav1.GetOptions{})
 	if err != nil {
-		return err
+		return &v1.RegistrationRequest{}, err
 	}
 
 	regCode, ok := regSecret.Data[util.RegCodeSecretKey]
 	if !ok {
-		return errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, util.RegCodeSecretKey))
+		return &v1.RegistrationRequest{}, errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, util.RegCodeSecretKey))
 	}
 
 	// 2. Attempt SCC phone home with Online mode
 	sccConnection := suseconnect.DefaultRancherConnection()
-	err = h.verifyBasicSubscription(registrationRequest, sccConnection, string(regCode))
+	registrationCode := string(regCode)
+	registrationRequest, err = h.verifyBasicSubscription(registrationRequest, sccConnection, registrationCode)
 	if err != nil {
-		return err
+		return &v1.RegistrationRequest{}, err
 	}
 
-	return nil
+	registrationRequest, err = h.setSuccessCondition(registrationRequest)
+	if err != nil {
+		return &v1.RegistrationRequest{}, err
+	}
+
+	return registrationRequest, nil
 }
 
-func (h *handler) verifyBasicSubscription(registrationRequest *v1.RegistrationRequest, sccConnection *connection.ApiConnection, regCode string) error {
+func (h *handler) verifyBasicSubscription(registrationRequest *v1.RegistrationRequest, sccConnection *connection.ApiConnection, regCode string) (*v1.RegistrationRequest, error) {
 	subscriptionInfoResponse, err := suseconnect.SubscriptionInfo(sccConnection, regCode)
 	if err != nil {
-		return err
+		return registrationRequest, err
 	}
 
 	subscriptionInfo := registration.SubscriptionInfo{}
 	err = json.Unmarshal(subscriptionInfoResponse, &subscriptionInfo)
 	if err != nil {
-		return err
+		return registrationRequest, err
 	}
 
 	now := time.Now()
 	if subscriptionInfo.StartsAt.After(now) || subscriptionInfo.ExpiresAt.Before(now) {
-		return errors.New(fmt.Sprintf("subscription info is out of date"))
+		return registrationRequest, errors.New(fmt.Sprintf("subscription info is out of date"))
 	}
 
-	registrationRequest.Status.SubscriptionInfo = string(subscriptionInfoResponse)
-	v1.RegistrationRequestConditionSubscriptionInfoCollected.SetStatusBool(registrationRequest, true)
-	_, err = h.registrationRequests.UpdateStatus(registrationRequest)
+	newRegRequest := registrationRequest.DeepCopy()
+	newRegRequest.Status.SubscriptionInfo = string(subscriptionInfoResponse)
+
+	v1.RegistrationRequestConditionSubscriptionInfoCollected.SetStatusBool(newRegRequest, true)
+	registrationRequest, err = h.registrationRequests.UpdateStatus(newRegRequest)
 	if err != nil {
-		return err
+		return registrationRequest, err
 	}
 
-	return nil
+	return newRegRequest, nil
 }
 
-func (h *handler) setProcessingCondition(registrationRequest *v1.RegistrationRequest) error {
+func (h *handler) setProcessingCondition(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
 	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, true)
 	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Processing")
 
-	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
-	return err
+	return h.registrationRequests.UpdateStatus(registrationRequest)
 }
 
 func (h *handler) processOfflineRegistration(registrationRequest *v1.RegistrationRequest) error {
@@ -172,7 +179,7 @@ func (h *handler) setBackoffCondition(registrationRequest *v1.RegistrationReques
 	v1.RegistrationRequestConditionBackoff.SetStatusBool(registrationRequest, true)
 	v1.RegistrationRequestConditionBackoff.SetMessageIfBlank(registrationRequest, "Processing failed for now, will retry soon.")
 
-	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
+	registrationRequest, err := h.registrationRequests.UpdateStatus(registrationRequest)
 	return err
 }
 
@@ -187,11 +194,11 @@ func (h *handler) setFailedCondition(registrationRequest *v1.RegistrationRequest
 	v1.RegistrationRequestConditionFailed.SetStatusBool(registrationRequest, true)
 	v1.RegistrationRequestConditionFailed.SetError(registrationRequest, "", originalError)
 
-	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
+	registrationRequest, err := h.registrationRequests.UpdateStatus(registrationRequest)
 	return errors.New(originalError.Error() + err.Error())
 }
 
-func (h *handler) setSuccessCondition(registrationRequest *v1.RegistrationRequest) error {
+func (h *handler) setSuccessCondition(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
 	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
 	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Completed")
 
@@ -202,6 +209,5 @@ func (h *handler) setSuccessCondition(registrationRequest *v1.RegistrationReques
 		v1.RegistrationRequestConditionFailed.SetStatusBool(registrationRequest, false)
 	}
 
-	_, err := h.registrationRequests.UpdateStatus(registrationRequest)
-	return err
+	return h.registrationRequests.UpdateStatus(registrationRequest)
 }

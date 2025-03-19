@@ -63,7 +63,11 @@ func (so *sccOperator) maybeFirstInit() error {
 			return err
 		}
 
-		newRegistrationRequest := &v1.RegistrationRequest{}
+		newRegistrationRequest := &v1.RegistrationRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "rancher-",
+			},
+		}
 		newRegistrationRequest.Spec.Mode = *mode
 		if *mode == v1.Offline {
 			newRegistrationRequest.Spec.RegistrationCertificateSecretRef = &corev1.SecretReference{
