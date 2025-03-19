@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/rancher/wrangler/v3/pkg/condition"
 	"github.com/rancher/wrangler/v3/pkg/genericcondition"
 	corev1 "k8s.io/api/core/v1"
@@ -8,8 +9,11 @@ import (
 )
 
 const (
-	RegistrationRequestConditionProcessing condition.Cond = "Processing"
+	RegistrationRequestConditionBackoff    condition.Cond = "Backoff"
+	RegistrationRequestConditionCompleted  condition.Cond = "Completed"
+	RegistrationRequestConditionError      condition.Cond = "Error"
 	RegistrationRequestConditionFailed     condition.Cond = "Failed"
+	RegistrationRequestConditionProcessing condition.Cond = "Processing"
 	RegistrationConditionHealthy           condition.Cond = "Healthy"
 	RegistrationConditionPending           condition.Cond = "Pending"
 	RegistrationConditionExpired           condition.Cond = "Expired"
@@ -41,6 +45,7 @@ type RegistrationRequestSpec struct {
 
 type RegistrationRequestStatus struct {
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
+	SubscriptionInfo           registration.SubscriptionInfo       `json:"subscriptionInfo,omitempty"`
 	RequestProcessedTS         string                              `json:"requestProcessedTS"`
 	OfflineRegistrationRequest *corev1.SecretReference             `json:"offlineRegistrationRequest,omitempty"`
 }

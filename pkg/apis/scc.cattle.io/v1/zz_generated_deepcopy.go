@@ -183,6 +183,7 @@ func (in *RegistrationRequestStatus) DeepCopyInto(out *RegistrationRequestStatus
 		*out = make([]genericcondition.GenericCondition, len(*in))
 		copy(*out, *in)
 	}
+	in.SubscriptionInfo.DeepCopyInto(&out.SubscriptionInfo)
 	if in.OfflineRegistrationRequest != nil {
 		in, out := &in.OfflineRegistrationRequest, &out.OfflineRegistrationRequest
 		*out = new(corev1.SecretReference)
