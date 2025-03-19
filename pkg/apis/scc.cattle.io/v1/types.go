@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/rancher/wrangler/v3/pkg/condition"
 	"github.com/rancher/wrangler/v3/pkg/genericcondition"
 	corev1 "k8s.io/api/core/v1"
@@ -9,17 +8,18 @@ import (
 )
 
 const (
-	RegistrationRequestConditionBackoff    condition.Cond = "Backoff"
-	RegistrationRequestConditionCompleted  condition.Cond = "Completed"
-	RegistrationRequestConditionError      condition.Cond = "Error"
-	RegistrationRequestConditionFailed     condition.Cond = "Failed"
-	RegistrationRequestConditionProcessing condition.Cond = "Processing"
-	RegistrationConditionHealthy           condition.Cond = "Healthy"
-	RegistrationConditionPending           condition.Cond = "Pending"
-	RegistrationConditionExpired           condition.Cond = "Expired"
-	RegistrationConditionCloned            condition.Cond = "Cloned"
-	RegistrationConditionTimeout           condition.Cond = "Timeout"
-	RegistrationConditionFailed            condition.Cond = "Failed"
+	RegistrationRequestConditionBackoff                   condition.Cond = "Backoff"
+	RegistrationRequestConditionCompleted                 condition.Cond = "Completed"
+	RegistrationRequestConditionError                     condition.Cond = "Error"
+	RegistrationRequestConditionFailed                    condition.Cond = "Failed"
+	RegistrationRequestConditionProcessing                condition.Cond = "Processing"
+	RegistrationRequestConditionSubscriptionInfoCollected condition.Cond = "SubscriptionInfoCollected"
+	RegistrationConditionHealthy                          condition.Cond = "Healthy"
+	RegistrationConditionPending                          condition.Cond = "Pending"
+	RegistrationConditionExpired                          condition.Cond = "Expired"
+	RegistrationConditionCloned                           condition.Cond = "Cloned"
+	RegistrationConditionTimeout                          condition.Cond = "Timeout"
+	RegistrationConditionFailed                           condition.Cond = "Failed"
 )
 
 // +genclient
@@ -45,8 +45,8 @@ type RegistrationRequestSpec struct {
 
 type RegistrationRequestStatus struct {
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
-	SubscriptionInfo           registration.SubscriptionInfo       `json:"subscriptionInfo,omitempty"`
-	RequestProcessedTS         string                              `json:"requestProcessedTS"`
+	SubscriptionInfo           string                              `json:"subscriptionInfo,omitempty"`
+	RequestProcessedTS         string                              `json:"requestProcessedTS,omitempty"`
 	OfflineRegistrationRequest *corev1.SecretReference             `json:"offlineRegistrationRequest,omitempty"`
 }
 
