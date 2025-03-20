@@ -3,9 +3,11 @@ package scc
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/util"
 	"github.com/rancher/rancher/pkg/settings"
+	"github.com/rancher/rancher/pkg/version"
 	"github.com/rancher/wrangler/v3/pkg/start"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,8 +23,9 @@ import (
 )
 
 type sccOperator struct {
-	sccFactory *scc.Factory
-	core       *v1core.Factory
+	sccFactory        *scc.Factory
+	core              *v1core.Factory
+	systemInformation *util.RancherSystemInfo
 }
 
 func setup(wContext *wrangler.Context) (sccOperator, error) {
@@ -37,9 +40,35 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 		return sccOperator{}, fmt.Errorf("error building core controllers: %s", err.Error())
 	}
 
+	namespaces := coreF.Core().V1().Namespace()
+	kubeSystemNS, err := namespaces.Get("kube-system", metav1.GetOptions{})
+	if err != nil {
+		// fatal log here, because we need the kube-system ns UID while creating any backup file
+		logrus.Fatalf("Error getting namespace kube-system %v", err)
+	}
+
+	cattleSystemNS, err := namespaces.Get("cattle-system", metav1.GetOptions{})
+	if err != nil {
+		// fatal log here, because we need the kube-system ns UID while creating any backup file
+		logrus.Fatalf("Error getting namespace cattle-system %v", err)
+	}
+
+	// This needs a watcher - if URL is updated this operator needs to be informed
+	serverUrl := settings.ServerURL.Get()
+	if serverUrl == "" {
+		logrus.Fatalf("Missing server url")
+	}
+	// TODO: also get Node, Sockets, Vcpus, Clusters and watch those
+
 	return sccOperator{
 		sccFactory: registrationSccFactory,
 		core:       coreF,
+		systemInformation: &util.RancherSystemInfo{
+			ClusterUuid: uuid.MustParse(string(kubeSystemNS.UID)),
+			RancherUuid: uuid.MustParse(string(cattleSystemNS.UID)),
+			Url:         serverUrl,
+			Version:     version.Version,
+		},
 	}, nil
 }
 
@@ -112,7 +141,6 @@ func Setup(
 		return fmt.Errorf("error creating first-start `RegistrationRequest`: %s", err.Error())
 	}
 
-	// TODO register controllers here
 	logrus.Info("[scc-operator] Setup controllers here")
 	registrationrequest.Register(
 		ctx,
@@ -120,10 +148,12 @@ func Setup(
 		initOperator.sccFactory.Scc().V1().Registration(),
 		initOperator.core.Core().V1().ConfigMap(),
 		initOperator.core.Core().V1().Secret(),
+		initOperator.systemInformation,
 	)
 	registration.Register(
 		ctx,
 		initOperator.sccFactory.Scc().V1().Registration(),
+		initOperator.systemInformation,
 	)
 
 	// TODO: verify this is correct
@@ -131,7 +161,7 @@ func Setup(
 		logrus.Fatalf("Error starting: %s", err.Error())
 	}
 
-	// TODO: Some where in operator, or in registration controller, the current Registration needs to be revalidated every 24 hours
+	// TODO: Somewhere in operator, or in registration controller, the current Registration needs to be revalidated every 24 hours
 
 	return nil
 }

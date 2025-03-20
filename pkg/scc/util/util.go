@@ -1,8 +1,10 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/SUSE/connect-ng/pkg/connection"
+	"github.com/google/uuid"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
 	controllerv1 "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
@@ -19,6 +21,7 @@ const (
 	RegCertSecretName                     = "rancher-scc-registration-certificate"
 	RegCertSecretKey                      = "certificate"
 	RancherSCCSystemCredentialsSecretName = "rancher-scc-system-credentials"
+	RancherSCCOfflineRequestSecretName    = "rancher-scc-offline-registration-request"
 )
 
 func ValidateInitializingConfigMap(sccInitializerConfig *corev1.ConfigMap) (string, *v1.RegistrationMode, error) {
@@ -100,4 +103,74 @@ func RegistrationFromRequest(registrations registrationControllers.RegistrationC
 	}
 
 	return registrations.Create(newRegistration)
+}
+
+type RancherSystemInfo struct {
+	ClusterUuid uuid.UUID
+	RancherUuid uuid.UUID
+	Url         string
+	Nodes       int
+	Sockets     int
+	Vcpus       int
+	Clusters    int
+	Version     string
+}
+
+func (rsi *RancherSystemInfo) Uuid() uuid.UUID {
+	return combinedUUID(rsi.ClusterUuid, rsi.RancherUuid)
+}
+
+func (rsi *RancherSystemInfo) PreparedForSCC() ([]byte, error) {
+	type RancherSCCInfo struct {
+		UUID     uuid.UUID `json:"uuid"`
+		Url      string    `json:"server_url"`
+		Nodes    int       `json:"nodes"`
+		Sockets  int       `json:"sockets"`
+		Vcpus    int       `json:"vcpus"`
+		Clusters int       `json:"clusters"`
+		Version  string    `json:"version"`
+	}
+
+	sccInfo := &RancherSCCInfo{
+		UUID:     rsi.Uuid(),
+		Url:      rsi.Url,
+		Nodes:    rsi.Nodes,
+		Sockets:  rsi.Sockets,
+		Vcpus:    rsi.Vcpus,
+		Clusters: rsi.Clusters,
+		//Version:  rsi.Version,
+		Version: "2.10.3",
+	}
+
+	return json.Marshal(sccInfo)
+}
+
+func combinedUUID(uuid1, uuid2 uuid.UUID) uuid.UUID {
+	// Combine the byte representations of the two UUIDs.
+	combinedBytes := append(uuid1[:], uuid2[:]...)
+
+	// Use uuid.NewSHA1 to generate the combined UUID.
+	return uuid.NewSHA1(uuid1, combinedBytes)
+}
+
+func StoreSccOfflineRegistration(secrets controllerv1.SecretController, request *v1.RegistrationRequest, offlineBlob []byte) (*corev1.Secret, error) {
+	newSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      RancherSCCOfflineRequestSecretName,
+			Namespace: "cattle-system",
+			Annotations: map[string]string{
+				"owner": request.Name,
+			},
+		},
+		StringData: map[string]string{
+			"offlineRequest": string(offlineBlob),
+		},
+	}
+	created, err := secrets.Create(newSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: update Request status to point to creds secret
+	return created, nil
 }

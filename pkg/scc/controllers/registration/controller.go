@@ -6,6 +6,7 @@ import (
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
+	"github.com/rancher/rancher/pkg/scc/util"
 	"github.com/sirupsen/logrus"
 
 	sccRegistration "github.com/SUSE/connect-ng/pkg/registration"
@@ -14,15 +15,18 @@ import (
 type handler struct {
 	ctx           context.Context
 	registrations registrationControllers.RegistrationController
+	systemInfo    *util.RancherSystemInfo
 }
 
 func Register(
 	ctx context.Context,
 	registrations registrationControllers.RegistrationController,
+	systemInfo *util.RancherSystemInfo,
 ) {
 	controller := &handler{
 		ctx:           ctx,
 		registrations: registrations,
+		systemInfo:    systemInfo,
 	}
 
 	registrations.OnChange(ctx, "registrations", controller.OnRegistrationChange)
