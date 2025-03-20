@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
 	"github.com/rancher/rancher/pkg/scc/util"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
@@ -25,6 +26,7 @@ type handler struct {
 	registrations        registrationControllers.RegistrationController
 	configMaps           v1core.ConfigMapController
 	secrets              v1core.SecretController
+	systemInfo           *util.RancherSystemInfo
 }
 
 func Register(
@@ -33,6 +35,7 @@ func Register(
 	registrations registrationControllers.RegistrationController,
 	configMaps v1core.ConfigMapController,
 	secrets v1core.SecretController,
+	systemInfo *util.RancherSystemInfo,
 ) {
 	controller := &handler{
 		ctx:                  ctx,
@@ -40,6 +43,7 @@ func Register(
 		registrations:        registrations,
 		configMaps:           configMaps,
 		secrets:              secrets,
+		systemInfo:           systemInfo,
 	}
 
 	registrationRequests.OnChange(ctx, "registrationRequests", controller.OnRegistrationRequestChange)
@@ -202,14 +206,36 @@ func (h *handler) createSystemRegistration(registrationRequest *v1.RegistrationR
 }
 
 func (h *handler) prepareOfflineRegistrationRequest(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
-	// TODO implement offline mechanism
-	logrus.Info("[scc.registrationrequest-controller]: offline mode ")
-	return registrationRequest, nil
+	logrus.Info("[scc.registrationrequest-controller]: offline mode create request")
+	sccOfflineBlob, jsonErr := h.systemInfo.PreparedForSCC()
+	if jsonErr != nil {
+		return registrationRequest, jsonErr
+	}
+	offlineRegistrationSecret, err := util.StoreSccOfflineRegistration(h.secrets, registrationRequest, sccOfflineBlob)
+	if err != nil {
+		return registrationRequest, err
+	}
+
+	updatedRequest := registrationRequest.DeepCopy()
+	updatedRequest.Status.OfflineRegistrationRequest = &corev1.SecretReference{
+		Name:      offlineRegistrationSecret.Name,
+		Namespace: offlineRegistrationSecret.Namespace,
+	}
+
+	// TODO: also set a status/condition to indicate Offline is ready for user
+	// The message could potentially even give command to fetch secret?
+
+	updatedRequest, err = h.registrationRequests.UpdateStatus(updatedRequest)
+	if err != nil {
+		return registrationRequest, err
+	}
+
+	return updatedRequest, nil
 }
 
 func (h *handler) processOfflineRegistration(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
 	// TODO implement offline mechanism
-	logrus.Info("[scc.registrationrequest-controller]: offline mode ")
+	logrus.Info("[scc.registrationrequest-controller]: offline mode processing")
 	return registrationRequest, nil
 }
 
