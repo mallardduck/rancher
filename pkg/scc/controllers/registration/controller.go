@@ -71,7 +71,7 @@ func (h *handler) processOnlineRegistration(registration *v1.Registration) (*v1.
 
 	// TODO get rancher ID
 	identifier := "rancher"
-	version := "2.9.3"
+	version := "2.10.3"
 	arch := "unknown"
 
 	meta, root, rootErr := sccRegistration.Activate(sccConnection, identifier, version, arch, regcode)
