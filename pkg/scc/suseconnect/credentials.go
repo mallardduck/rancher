@@ -2,7 +2,9 @@ package suseconnect
 
 import (
 	"fmt"
+	"github.com/SUSE/connect-ng/pkg/connection"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type CredentialType int
@@ -16,9 +18,9 @@ const (
 
 var credentialTypeName = map[CredentialType]string{
 	CredentialTypeUnconfigured: "unconfigured",
-	CredentialTypeToken:        "token",
-	CredentialTypeLogin:        "login",
-	CredentialTypeBoth:         "token and login",
+	CredentialTypeToken:        "systemToken",
+	CredentialTypeLogin:        "systemLogin",
+	CredentialTypeBoth:         "systemToken and systemLogin",
 }
 
 func (ct CredentialType) String() string {
@@ -26,22 +28,22 @@ func (ct CredentialType) String() string {
 }
 
 type SccCredentials struct {
-	token    string
-	login    string
-	password string
+	systemToken string
+	systemLogin string
+	password    string
 }
 
 // CredentialsType Returns the mode (or modes) that are configured for authentication
 func (c *SccCredentials) CredentialsType() CredentialType {
-	if c.token != "" && c.login != "" && c.password != "" {
+	if c.systemToken != "" && c.systemLogin != "" && c.password != "" {
 		return CredentialTypeBoth
 	}
 
-	if c.token != "" {
+	if c.systemToken != "" {
 		return CredentialTypeToken
 	}
 
-	if c.login != "" && c.password != "" {
+	if c.systemLogin != "" && c.password != "" {
 		return CredentialTypeLogin
 	}
 
@@ -59,22 +61,16 @@ func (c *SccCredentials) HasAuthentication() bool {
 }
 
 // Token returns the current system used to detect duplicated systems. This
-// token gets rotated on each non read operation.
+// systemToken gets rotated on each non read operation.
 func (c *SccCredentials) Token() (string, error) {
-	if c.token == "" {
-		return "", errors.New("the token is not currently set")
-	}
-
-	return c.token, nil
+	return c.systemToken, nil
 }
 
-// UpdateToken is called when a token has changed
+// UpdateToken is called when a systemToken has changed
 func (c *SccCredentials) UpdateToken(newToken string) error {
-	if newToken == "" {
-		return errors.New("cannot update token to empty string")
-	}
+	logrus.Warn("systemToken set to empty string")
 
-	c.token = newToken
+	c.systemToken = newToken
 
 	return nil
 }
@@ -83,10 +79,10 @@ func (c *SccCredentials) UpdateToken(newToken string) error {
 func (c *SccCredentials) Login() (string, string, error) {
 	configuredType := c.CredentialsType()
 	if configuredType != CredentialTypeLogin && configuredType != CredentialTypeBoth {
-		return "", "", errors.New("cannot use login credentials when they are not properly configured")
+		return "", "", errors.New("cannot use systemLogin credentials when they are not properly configured")
 	}
 
-	return c.login, c.password, nil
+	return c.systemLogin, c.password, nil
 }
 
 // SetLogin updates the saved username and password
@@ -102,19 +98,15 @@ func (c *SccCredentials) SetLogin(newLogin string, newPassword string) error {
 			}
 			errorMessage += "newPassword is empty"
 		}
-		return errors.New(fmt.Sprintf("cannot update login; %v", errorMessage))
+		return errors.New(fmt.Sprintf("cannot update systemLogin; %v", errorMessage))
 	}
 
-	c.login = newLogin
+	c.systemLogin = newLogin
 	c.password = newPassword
 
 	return nil
 }
 
-func NewCredentials(login string, password string) SccCredentials {
-	credential := SccCredentials{
-		login:    login,
-		password: password,
-	}
-	return credential
+func NewCredentials() connection.Credentials {
+	return &SccCredentials{}
 }

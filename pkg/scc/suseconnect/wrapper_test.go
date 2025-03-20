@@ -30,5 +30,5 @@ func TestDefaultRancherConnection(t *testing.T) {
 	options := DefaultConnectionOptions()
 	expected := connection.New(options, connection.NoCredentials{})
 
-	assert.Equal(t, expected, DefaultRancherConnection())
+	assert.Equal(t, expected, DefaultRancherConnection(connection.NoCredentials{}))
 }

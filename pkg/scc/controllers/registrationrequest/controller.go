@@ -22,6 +22,7 @@ import (
 type handler struct {
 	ctx                  context.Context
 	registrationRequests registrationControllers.RegistrationRequestController
+	registrations        registrationControllers.RegistrationController
 	configMaps           v1core.ConfigMapController
 	secrets              v1core.SecretController
 }
@@ -29,12 +30,14 @@ type handler struct {
 func Register(
 	ctx context.Context,
 	registrationRequests registrationControllers.RegistrationRequestController,
+	registrations registrationControllers.RegistrationController,
 	configMaps v1core.ConfigMapController,
 	secrets v1core.SecretController,
 ) {
 	controller := &handler{
 		ctx:                  ctx,
 		registrationRequests: registrationRequests,
+		registrations:        registrations,
 		configMaps:           configMaps,
 		secrets:              secrets,
 	}
@@ -91,25 +94,31 @@ func (h *handler) processOnlineRegistration(registrationRequest *v1.Registration
 	// 2. Verify RegistrationRequest creds,
 	regSecret, err := h.secrets.Get("cattle-system", secretName, metav1.GetOptions{})
 	if err != nil {
-		return &v1.RegistrationRequest{}, err
+		return registrationRequest, err
 	}
 
 	regCode, ok := regSecret.Data[util.RegCodeSecretKey]
 	if !ok {
-		return &v1.RegistrationRequest{}, errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, util.RegCodeSecretKey))
+		return registrationRequest, errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, util.RegCodeSecretKey))
 	}
 
 	// 2. Attempt SCC phone home with Online mode
-	sccConnection := suseconnect.DefaultRancherConnection()
+	sccCredentials := suseconnect.SccCredentials{}
+	sccConnection := suseconnect.DefaultRancherConnection(&sccCredentials)
 	registrationCode := string(regCode)
 	registrationRequest, err = h.verifyBasicSubscription(registrationRequest, sccConnection, registrationCode)
 	if err != nil {
-		return &v1.RegistrationRequest{}, err
+		return h.setReconcilingCondition(registrationRequest, err)
+	}
+
+	registrationRequest, err = h.createSystemRegistration(registrationRequest, sccConnection, registrationCode)
+	if err != nil {
+		return h.setReconcilingCondition(registrationRequest, err)
 	}
 
 	registrationRequest, err = h.setSuccessCondition(registrationRequest)
 	if err != nil {
-		return &v1.RegistrationRequest{}, err
+		return h.setReconcilingCondition(registrationRequest, err)
 	}
 
 	return registrationRequest, nil
@@ -142,6 +151,51 @@ func (h *handler) verifyBasicSubscription(registrationRequest *v1.RegistrationRe
 	}
 
 	return newRegRequest, nil
+}
+
+func (h *handler) createSystemRegistration(registrationRequest *v1.RegistrationRequest, sccConnection *connection.ApiConnection, code string) (*v1.RegistrationRequest, error) {
+
+	// TODO: this should check status/condition to verify it needs to be done.
+	// If we have valid system credentials we don't need to repeat this I think?
+
+	// TODO: get hostname of cluster - also needs to fail until we know the hostname (domain of cluster)
+	hostname := "dpock-test.not-real-hostname.lan"
+
+	id, regErr := suseconnect.SystemRegistration(sccConnection, code, hostname, nil)
+	if regErr != nil {
+		return registrationRequest, regErr
+	}
+	logrus.Infof("!! check https://scc.suse.com/systems/%d\n", id)
+
+	newRegRequest := registrationRequest.DeepCopy()
+	newRegRequest.Status.SCCSystemId = id
+	// TODO add a status condition for this too...
+	// Lets set the link as the message for that status too: https://scc.suse.com/systems/%d
+	newRegRequest, err := h.registrationRequests.UpdateStatus(newRegRequest)
+	if err != nil {
+		return registrationRequest, err
+	}
+
+	credentialsSecret, credsErr := util.StoreSccCredentials(h.secrets, registrationRequest, sccConnection.GetCredentials())
+	if credsErr != nil {
+		return registrationRequest, credsErr
+	}
+
+	// TODO: create a Registration CR after this
+	logrus.Info(credentialsSecret)
+	_, registrationErr := util.RegistrationFromRequest(h.registrations, registrationRequest, credentialsSecret)
+	if registrationErr != nil {
+		return registrationRequest, registrationErr
+	}
+
+	newRegRequest2 := newRegRequest.DeepCopy()
+	newRegRequest2.Status.RequestProcessedTS = time.Now().String()
+	newRegRequest2, err = h.registrationRequests.UpdateStatus(newRegRequest2)
+	if err != nil {
+		return newRegRequest, err
+	}
+
+	return newRegRequest2, nil
 }
 
 func (h *handler) setProcessingCondition(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {

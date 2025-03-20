@@ -45,6 +45,8 @@ type RegistrationRequestSpec struct {
 type RegistrationRequestStatus struct {
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
 	SubscriptionInfo           string                              `json:"subscriptionInfo,omitempty"`
+	SCCSystemId                int                                 `json:"sccSystemId,omitempty"`
+	SystemCredentialsSecretRef *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
 	RequestProcessedTS         string                              `json:"requestProcessedTS,omitempty"`
 	OfflineRegistrationRequest *corev1.SecretReference             `json:"offlineRegistrationRequest,omitempty"`
 }
@@ -80,10 +82,12 @@ type RegistrationSpec struct {
 }
 
 type RegistrationStatus struct {
-	Mode            RegistrationMode                    `json:"mode"`
-	Valid           bool                                `json:"valid"`
-	LastValidatedTS string                              `json:"lastValidatedTS"`
-	ValidUntilTS    string                              `json:"validUntilTS"`
-	Certificate     string                              `json:"certificate"`
-	Conditions      []genericcondition.GenericCondition `json:"conditions,omitempty"`
+	Mode                         RegistrationMode                    `json:"mode"`
+	OriginRegistrationRequestRef *corev1.LocalObjectReference        `json:"originRegistrationRequest,omitempty"`
+	SystemCredentialsSecretRef   *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
+	Valid                        bool                                `json:"valid"`
+	LastValidatedTS              string                              `json:"lastValidatedTS"`
+	ValidUntilTS                 string                              `json:"validUntilTS"`
+	Certificate                  string                              `json:"certificate"`
+	Conditions                   []genericcondition.GenericCondition `json:"conditions,omitempty"`
 }
