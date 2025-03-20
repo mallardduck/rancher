@@ -59,21 +59,27 @@ func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *
 		logrus.Info("[scc.registrationrequest-controller]: RegistrationRequest already processed")
 		return registrationRequest, nil
 	}
-	registrationRequest, err := h.setProcessingCondition(registrationRequest)
-	if err != nil {
-		return nil, errors.New("[scc.registrationrequest-controller]: setting condition failed;" + err.Error())
-	}
+	// TODO: set a status so we know this is currently processing
 
+	var err error
 	// 2. Verify contents of RegistrationRequest (mode and creds),
 	if registrationRequest.Spec.Mode == v1.Online {
-		registrationRequest, err := h.processOnlineRegistration(registrationRequest)
+		registrationRequest, err = h.processOnlineRegistration(registrationRequest)
 		if err != nil {
 			return h.setReconcilingCondition(registrationRequest, err)
 		}
 	} else {
-		err := h.processOfflineRegistration(registrationRequest)
-		if err != nil {
-			return h.setReconcilingCondition(registrationRequest, err)
+		// TODO: potentially this should be based on other state?
+		if registrationRequest.Status.OfflineRegistrationRequest == nil {
+			registrationRequest, err = h.prepareOfflineRegistrationRequest(registrationRequest)
+			if err != nil {
+				return h.setReconcilingCondition(registrationRequest, err)
+			}
+		} else if registrationRequest.Spec.RegistrationCertificateSecretRef != nil {
+			registrationRequest, err = h.processOfflineRegistration(registrationRequest)
+			if err != nil {
+				return h.setReconcilingCondition(registrationRequest, err)
+			}
 		}
 	}
 
@@ -116,10 +122,7 @@ func (h *handler) processOnlineRegistration(registrationRequest *v1.Registration
 		return h.setReconcilingCondition(registrationRequest, err)
 	}
 
-	registrationRequest, err = h.setSuccessCondition(registrationRequest)
-	if err != nil {
-		return h.setReconcilingCondition(registrationRequest, err)
-	}
+	// TODO: If we reached here we can set a success condition!
 
 	return registrationRequest, nil
 }
@@ -143,9 +146,7 @@ func (h *handler) verifyBasicSubscription(registrationRequest *v1.RegistrationRe
 
 	newRegRequest := registrationRequest.DeepCopy()
 	newRegRequest.Status.SubscriptionInfo = string(subscriptionInfoResponse)
-
-	v1.RegistrationRequestConditionSubscriptionInfoCollected.SetStatusBool(newRegRequest, true)
-	registrationRequest, err = h.registrationRequests.UpdateStatus(newRegRequest)
+	newRegRequest, err = h.registrationRequests.UpdateStatus(newRegRequest)
 	if err != nil {
 		return registrationRequest, err
 	}
@@ -176,18 +177,20 @@ func (h *handler) createSystemRegistration(registrationRequest *v1.RegistrationR
 		return registrationRequest, err
 	}
 
+	// Ensure we keep the system credentials we were just issued
 	credentialsSecret, credsErr := util.StoreSccCredentials(h.secrets, registrationRequest, sccConnection.GetCredentials())
 	if credsErr != nil {
 		return registrationRequest, credsErr
 	}
 
-	// TODO: create a Registration CR after this
 	logrus.Info(credentialsSecret)
 	_, registrationErr := util.RegistrationFromRequest(h.registrations, registrationRequest, credentialsSecret)
 	if registrationErr != nil {
+		// TODO: consider conditions when this would fail, some may need IgnoreErr to prevent useless retries
 		return registrationRequest, registrationErr
 	}
 
+	// Setting the RequestProcessedTS will ensure this doesn't get reprocessed again
 	newRegRequest2 := newRegRequest.DeepCopy()
 	newRegRequest2.Status.RequestProcessedTS = time.Now().String()
 	newRegRequest2, err = h.registrationRequests.UpdateStatus(newRegRequest2)
@@ -198,70 +201,23 @@ func (h *handler) createSystemRegistration(registrationRequest *v1.RegistrationR
 	return newRegRequest2, nil
 }
 
-func (h *handler) setProcessingCondition(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
-	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, true)
-	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Processing")
-
-	return h.registrationRequests.UpdateStatus(registrationRequest)
-}
-
-func (h *handler) processOfflineRegistration(registrationRequest *v1.RegistrationRequest) error {
+func (h *handler) prepareOfflineRegistrationRequest(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
 	// TODO implement offline mechanism
 	logrus.Info("[scc.registrationrequest-controller]: offline mode ")
-	return nil
+	return registrationRequest, nil
+}
+
+func (h *handler) processOfflineRegistration(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
+	// TODO implement offline mechanism
+	logrus.Info("[scc.registrationrequest-controller]: offline mode ")
+	return registrationRequest, nil
 }
 
 func (h *handler) setReconcilingCondition(request *v1.RegistrationRequest, originalErr error) (*v1.RegistrationRequest, error) {
 	logrus.Info("[scc.registrationrequest-controller]: set reconciling condition")
 	logrus.Error(originalErr)
 
-	// TODO implement backoff in here?
-	err := h.setFailedCondition(request, originalErr)
-	if err != nil {
-		return request, errors.New(originalErr.Error() + err.Error())
-	}
+	// TODO Update status
 
 	return request, originalErr
-}
-
-// TODO: use this when we implement retry interval and timeout fully
-// TODO: pass error to this and set the message
-func (h *handler) setBackoffCondition(registrationRequest *v1.RegistrationRequest) error {
-	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
-	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Completed")
-
-	v1.RegistrationRequestConditionBackoff.SetStatusBool(registrationRequest, true)
-	v1.RegistrationRequestConditionBackoff.SetMessageIfBlank(registrationRequest, "Processing failed for now, will retry soon.")
-
-	registrationRequest, err := h.registrationRequests.UpdateStatus(registrationRequest)
-	return err
-}
-
-// TODO: pass error to this and set the message
-func (h *handler) setFailedCondition(registrationRequest *v1.RegistrationRequest, originalError error) error {
-	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
-	v1.RegistrationRequestConditionCompleted.SetStatusBool(registrationRequest, false)
-	v1.RegistrationRequestConditionCompleted.SetMessageIfBlank(registrationRequest, "Failed to process RegistrationRequest")
-
-	// Failed communicates that it won't be retried, and error communicates the logged error
-	// TODO: actually set the message to something that makes sense based on the error
-	v1.RegistrationRequestConditionFailed.SetStatusBool(registrationRequest, true)
-	v1.RegistrationRequestConditionFailed.SetError(registrationRequest, "", originalError)
-
-	registrationRequest, err := h.registrationRequests.UpdateStatus(registrationRequest)
-	return errors.New(originalError.Error() + err.Error())
-}
-
-func (h *handler) setSuccessCondition(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
-	v1.RegistrationRequestConditionProcessing.SetStatusBool(registrationRequest, false)
-	v1.RegistrationRequestConditionProcessing.SetMessageIfBlank(registrationRequest, "SCC RegistrationRequest Completed")
-
-	v1.RegistrationRequestConditionCompleted.SetStatusBool(registrationRequest, true)
-	v1.RegistrationRequestConditionCompleted.SetMessageIfBlank(registrationRequest, "Success")
-
-	if v1.RegistrationConditionFailed.GetStatus(registrationRequest) != "" {
-		v1.RegistrationRequestConditionFailed.SetStatusBool(registrationRequest, false)
-	}
-
-	return h.registrationRequests.UpdateStatus(registrationRequest)
 }
