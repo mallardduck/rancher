@@ -117,6 +117,7 @@ func Setup(
 	registrationrequest.Register(
 		ctx,
 		initOperator.sccFactory.Scc().V1().RegistrationRequest(),
+		initOperator.sccFactory.Scc().V1().Registration(),
 		initOperator.core.Core().V1().ConfigMap(),
 		initOperator.core.Core().V1().Secret(),
 	)

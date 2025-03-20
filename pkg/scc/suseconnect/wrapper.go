@@ -2,6 +2,8 @@ package suseconnect
 
 import (
 	"github.com/SUSE/connect-ng/pkg/connection"
+	"github.com/SUSE/connect-ng/pkg/registration"
+	"github.com/pkg/errors"
 )
 
 func DefaultConnectionOptions() connection.Options {
@@ -11,9 +13,12 @@ func DefaultConnectionOptions() connection.Options {
 	return connection.DefaultOptions("rancher-scc-integration", "0.0.1", "en_US")
 }
 
-func DefaultRancherConnection() *connection.ApiConnection {
+func DefaultRancherConnection(credentials connection.Credentials) *connection.ApiConnection {
 	options := DefaultConnectionOptions()
-	return connection.New(options, connection.NoCredentials{})
+	if credentials == nil {
+		credentials = connection.NoCredentials{}
+	}
+	return connection.New(options, credentials)
 }
 
 func SubscriptionInfo(conn *connection.ApiConnection, regCode string) ([]byte, error) {
@@ -32,4 +37,13 @@ func SubscriptionInfo(conn *connection.ApiConnection, regCode string) ([]byte, e
 	}
 
 	return subinfoResponse, nil
+}
+
+func SystemRegistration(conn *connection.ApiConnection, regCode string, hostname string, systemInformation any) (int, error) {
+	id, regErr := registration.Register(conn, regCode, hostname, systemInformation)
+	if regErr != nil {
+		return 0, errors.Wrap(regErr, "Cannot register system to SCC")
+	}
+
+	return id, nil
 }
