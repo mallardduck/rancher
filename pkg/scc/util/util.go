@@ -1,176 +1,110 @@
 package util
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/SUSE/connect-ng/pkg/connection"
-	"github.com/google/uuid"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
-	controllerv1 "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
+	"github.com/rancher/rancher/pkg/version"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	RegCodeInitializerKey                 = "regCodeRef"
+	RegCodeInitializerNameKey             = "regCodeSecretName"
+	RegCodeInitializerNamespaceKey        = "regCodeSecretNamespace"
 	RegCodeSecretName                     = "rancher-scc-registration-code"
 	RegCodeSecretKey                      = "regCode"
-	RegCertInitializerKey                 = "certificateRef"
+	RegCertInitializerNameKey             = "certificateSecretName"
+	RegCertInitializerNamespaceKey        = "certificateSecretNamespace"
 	RegCertSecretName                     = "rancher-scc-registration-certificate"
 	RegCertSecretKey                      = "certificate"
 	RancherSCCSystemCredentialsSecretName = "rancher-scc-system-credentials"
 	RancherSCCOfflineRequestSecretName    = "rancher-scc-offline-registration-request"
 )
 
-func ValidateInitializingConfigMap(sccInitializerConfig *corev1.ConfigMap) (string, *v1.RegistrationMode, error) {
+func ValidateInitializingConfigMap(sccInitializerConfig *corev1.ConfigMap) (*corev1.SecretReference, *v1.RegistrationMode, error) {
+	secretReference := &corev1.SecretReference{}
 	// Verify the expected fields are on the config map
 	modeString, _ := sccInitializerConfig.Data["mode"]
 	mode := v1.RegistrationMode(modeString)
 	if !mode.Valid() {
 		errorMsg := fmt.Sprintf("the configmap does not have a valid mode set")
 		logrus.Error(errorMsg)
-		return "", nil, fmt.Errorf(errorMsg)
+		return secretReference, nil, fmt.Errorf(errorMsg)
 	}
 
-	credentialValueKey := ""
+	credentialNameKey := ""
+	credentialNamespaceKey := ""
 	if mode == v1.Online {
-		credentialValueKey = RegCodeInitializerKey
+		credentialNameKey = RegCodeInitializerNameKey
+		credentialNamespaceKey = RegCodeInitializerNamespaceKey
 	} else {
-		credentialValueKey = RegCertInitializerKey
+		credentialNameKey = RegCertInitializerNameKey
+		credentialNamespaceKey = RegCertInitializerNamespaceKey
 	}
 
-	secretName, credOk := sccInitializerConfig.Data[credentialValueKey]
+	secretName, credOk := sccInitializerConfig.Data[credentialNameKey]
 	if !credOk {
 		// TODO bail here if OK is bad
 		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
-		errorMsg := fmt.Sprintf("cannot find the credential value key %s", credentialValueKey)
+		errorMsg := fmt.Sprintf("cannot find the credential value key %s", credentialNameKey)
 		logrus.Error(errorMsg)
-		return "", nil, fmt.Errorf(errorMsg)
+		return secretReference, nil, fmt.Errorf(errorMsg)
 	}
 
-	return secretName, &mode, nil
+	secretNamespace, credOk := sccInitializerConfig.Data[credentialNamespaceKey]
+	if !credOk {
+		// TODO bail here if OK is bad
+		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
+		errorMsg := fmt.Sprintf("cannot find the credential value key %s", credentialNamespaceKey)
+		logrus.Error(errorMsg)
+		secretNamespace = "cattle-system"
+	}
+
+	secretReference.Name = secretName
+	secretReference.Namespace = secretNamespace
+
+	return secretReference, &mode, nil
 }
 
-func StoreSccCredentials(secrets controllerv1.SecretController, request *v1.RegistrationRequest, credentials connection.Credentials) (*corev1.Secret, error) {
-	token, tokenErr := credentials.Token()
-	if tokenErr != nil {
-		return nil, tokenErr
-	}
-
-	systemLogin, password, loginErr := credentials.Login()
-	if loginErr != nil {
-		return nil, loginErr
-	}
-
-	newSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      RancherSCCSystemCredentialsSecretName,
-			Namespace: "cattle-system",
-		},
-		StringData: map[string]string{
-			"systemToken": token,
-			"systemLogin": systemLogin,
-			"password":    password,
-		},
-	}
-	created, err := secrets.Create(newSecret)
+func RegistrationFromRequest(registrations registrationControllers.RegistrationController, request *v1.RegistrationRequest) (*v1.Registration, error) {
+	existingReg, err := registrations.Get(request.Name, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return existingReg, nil
 	}
 
-	// TODO: update Request status to point to creds secret
-	return created, nil
-}
-
-func RegistrationFromRequest(registrations registrationControllers.RegistrationController, request *v1.RegistrationRequest, secret *corev1.Secret) (*v1.Registration, error) {
+	newRegStatus := v1.RegistrationStatus{
+		Mode: request.Spec.Mode,
+		OriginRegistrationRequestRef: &corev1.LocalObjectReference{
+			Name: request.Name,
+		},
+		RegistrationCodeSecretRef:  request.Spec.RegistrationCodeSecretRef.DeepCopy(),
+		SystemCredentialsSecretRef: request.Status.SystemCredentialsSecretRef.DeepCopy(),
+	}
 	newRegistration := &v1.Registration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: request.Name,
 		},
-		Spec: v1.RegistrationSpec{},
-		Status: v1.RegistrationStatus{
-			Mode: request.Spec.Mode,
-			OriginRegistrationRequestRef: &corev1.LocalObjectReference{
-				Name: request.Name,
-			},
-			SystemCredentialsSecretRef: &corev1.SecretReference{
-				Name:      secret.Name,
-				Namespace: secret.Namespace,
-			},
-		},
+		Spec:   v1.RegistrationSpec{},
+		Status: newRegStatus,
 	}
 
-	return registrations.Create(newRegistration)
-}
-
-type RancherSystemInfo struct {
-	ClusterUuid uuid.UUID
-	RancherUuid uuid.UUID
-	Url         string
-	Nodes       int
-	Sockets     int
-	Vcpus       int
-	Clusters    int
-	Version     string
-}
-
-func (rsi *RancherSystemInfo) Uuid() uuid.UUID {
-	return combinedUUID(rsi.ClusterUuid, rsi.RancherUuid)
-}
-
-func (rsi *RancherSystemInfo) PreparedForSCC() ([]byte, error) {
-	type RancherSCCInfo struct {
-		UUID     uuid.UUID `json:"uuid"`
-		Url      string    `json:"server_url"`
-		Nodes    int       `json:"nodes"`
-		Sockets  int       `json:"sockets"`
-		Vcpus    int       `json:"vcpus"`
-		Clusters int       `json:"clusters"`
-		Version  string    `json:"version"`
-	}
-
-	sccInfo := &RancherSCCInfo{
-		UUID:     rsi.Uuid(),
-		Url:      rsi.Url,
-		Nodes:    rsi.Nodes,
-		Sockets:  rsi.Sockets,
-		Vcpus:    rsi.Vcpus,
-		Clusters: rsi.Clusters,
-		//Version:  rsi.Version,
-		Version: "2.10.3",
-	}
-
-	return json.Marshal(sccInfo)
-}
-
-func combinedUUID(uuid1, uuid2 uuid.UUID) uuid.UUID {
-	// Combine the byte representations of the two UUIDs.
-	combinedBytes := append(uuid1[:], uuid2[:]...)
-
-	// Use uuid.NewSHA1 to generate the combined UUID.
-	return uuid.NewSHA1(uuid1, combinedBytes)
-}
-
-func StoreSccOfflineRegistration(secrets controllerv1.SecretController, request *v1.RegistrationRequest, offlineBlob []byte) (*corev1.Secret, error) {
-	newSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      RancherSCCOfflineRequestSecretName,
-			Namespace: "cattle-system",
-			Annotations: map[string]string{
-				"owner": request.Name,
-			},
-		},
-		StringData: map[string]string{
-			"offlineRequest": string(offlineBlob),
-		},
-	}
-	created, err := secrets.Create(newSecret)
+	newRegistration, err = registrations.Create(newRegistration)
 	if err != nil {
-		return nil, err
+		return &v1.Registration{}, err
 	}
 
-	// TODO: update Request status to point to creds secret
-	return created, nil
+	newRegistration = newRegistration.DeepCopy()
+	newRegistration.Status = newRegStatus
+
+	return registrations.UpdateStatus(newRegistration)
+}
+
+func GetProductIdentifier(override string) (string, string, string) {
+	if override != "" {
+		return "rancher", override, "unknown"
+	}
+
+	return "rancher", version.Version, "unknown"
 }

@@ -8,17 +8,21 @@ import (
 )
 
 const (
-	RegistrationRequestConditionBackoff                   condition.Cond = "Backoff"
-	RegistrationRequestConditionCompleted                 condition.Cond = "Completed"
-	RegistrationRequestConditionFailed                    condition.Cond = "Failed"
-	RegistrationRequestConditionProcessing                condition.Cond = "Processing"
+	ResourceConditionDone        condition.Cond = "Done"
+	ResourceConditionFailure     condition.Cond = "Failure"
+	ResourceConditionProgressing condition.Cond = "Progressing"
+	ResourceConditionReady       condition.Cond = "Ready"
+	ResourceConditionSynced      condition.Cond = "Synced"
+
+	RegistrationRequestConditionPrepared                  condition.Cond = "Prepared"
 	RegistrationRequestConditionSubscriptionInfoCollected condition.Cond = "SubscriptionInfoCollected"
-	RegistrationConditionHealthy                          condition.Cond = "Healthy"
-	RegistrationConditionPending                          condition.Cond = "Pending"
-	RegistrationConditionExpired                          condition.Cond = "Expired"
-	RegistrationConditionCloned                           condition.Cond = "Cloned"
-	RegistrationConditionTimeout                          condition.Cond = "Timeout"
-	RegistrationConditionFailed                           condition.Cond = "Failed"
+
+	RegistrationConditionHealthy condition.Cond = "Healthy"
+	RegistrationConditionPending condition.Cond = "Pending"
+	RegistrationConditionExpired condition.Cond = "Expired"
+	RegistrationConditionCloned  condition.Cond = "Cloned"
+	RegistrationConditionTimeout condition.Cond = "Timeout"
+	RegistrationConditionFailed  condition.Cond = "Failed"
 )
 
 // +genclient
@@ -84,6 +88,7 @@ type RegistrationSpec struct {
 type RegistrationStatus struct {
 	Mode                         RegistrationMode                    `json:"mode"`
 	OriginRegistrationRequestRef *corev1.LocalObjectReference        `json:"originRegistrationRequest,omitempty"`
+	RegistrationCodeSecretRef    *corev1.SecretReference             `json:"registrationCodeSecretRef,omitempty"`
 	SystemCredentialsSecretRef   *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
 	Valid                        bool                                `json:"valid"`
 	LastValidatedTS              string                              `json:"lastValidatedTS"`

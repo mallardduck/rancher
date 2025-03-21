@@ -9,8 +9,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
 	"github.com/rancher/rancher/pkg/scc/util"
+	"github.com/rancher/wrangler/v3/pkg/genericcondition"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"time"
 
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
@@ -96,27 +98,29 @@ func (h *handler) OnRegistrationRequestChange(name string, registrationRequest *
 func (h *handler) processOnlineRegistration(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
 	logrus.Info("[scc.registrationrequest-controller]: online mode ")
 	// 1. Verify the secret ref name
-	secretName := util.RegCodeSecretName
+	secretRef := &corev1.SecretReference{
+		Namespace: "cattle-system",
+		Name:      util.RegCodeSecretName,
+	}
 	if registrationRequest.Spec.RegistrationCodeSecretRef != nil {
-		secretName = registrationRequest.Spec.RegistrationCodeSecretRef.Name
+		secretRef = registrationRequest.Spec.RegistrationCodeSecretRef
 	}
 
 	// 2. Verify RegistrationRequest creds,
-	regSecret, err := h.secrets.Get("cattle-system", secretName, metav1.GetOptions{})
-	if err != nil {
-		return registrationRequest, err
+	registrationCode, regErr := suseconnect.FetchSccRegistrationCodeFrom(h.secrets, secretRef)
+	if regErr != nil {
+		return registrationRequest, regErr
 	}
 
-	regCode, ok := regSecret.Data[util.RegCodeSecretKey]
-	if !ok {
-		return registrationRequest, errors.New(fmt.Sprintf("registration secret `%s` does not contain expected data `%s`", secretName, util.RegCodeSecretKey))
+	serverUrl := h.systemInfo.ServerUrl()
+	if serverUrl == "" {
+		return h.setReconcilingCondition(registrationRequest, errors.New("no server url found in systemInfo"))
 	}
 
 	// 2. Attempt SCC phone home with Online mode
 	sccCredentials := suseconnect.SccCredentials{}
 	sccConnection := suseconnect.DefaultRancherConnection(&sccCredentials)
-	registrationCode := string(regCode)
-	registrationRequest, err = h.verifyBasicSubscription(registrationRequest, sccConnection, registrationCode)
+	registrationRequest, err := h.verifyBasicSubscription(registrationRequest, sccConnection, registrationCode)
 	if err != nil {
 		return h.setReconcilingCondition(registrationRequest, err)
 	}
@@ -126,7 +130,22 @@ func (h *handler) processOnlineRegistration(registrationRequest *v1.Registration
 		return h.setReconcilingCondition(registrationRequest, err)
 	}
 
+	// TODO: Create the registration CRD
+	_, registrationErr := util.RegistrationFromRequest(h.registrations, registrationRequest)
+	if registrationErr != nil {
+		// TODO: consider conditions when this would fail, some may need IgnoreErr to prevent useless retries
+		return registrationRequest, registrationErr
+	}
+
 	// TODO: If we reached here we can set a success condition!
+	registrationRequest.Status.RequestProcessedTS = time.Now().UTC().Format(time.RFC3339)
+	registrationRequest.Status.Conditions = make([]genericcondition.GenericCondition, 0)
+	v1.ResourceConditionFailure.SetStatusBool(registrationRequest, false)
+	v1.ResourceConditionReady.SetStatusBool(registrationRequest, true)
+	registrationRequest, err = h.registrationRequests.UpdateStatus(registrationRequest)
+	if err != nil {
+		return registrationRequest, err
+	}
 
 	return registrationRequest, nil
 }
@@ -159,59 +178,53 @@ func (h *handler) verifyBasicSubscription(registrationRequest *v1.RegistrationRe
 }
 
 func (h *handler) createSystemRegistration(registrationRequest *v1.RegistrationRequest, sccConnection *connection.ApiConnection, code string) (*v1.RegistrationRequest, error) {
+	// If this step has been done don't repeat it
+	if registrationRequest.Status.SubscriptionInfo != "" && registrationRequest.Status.SCCSystemId != 0 && registrationRequest.Status.SystemCredentialsSecretRef != nil {
+		// TODO: this may need more verification
+		return registrationRequest, nil
+	}
 
-	// TODO: this should check status/condition to verify it needs to be done.
-	// If we have valid system credentials we don't need to repeat this I think?
+	hostname := h.systemInfo.ServerUrl()
+	systemInfo, err := h.systemInfo.PreparedForSCC()
+	if err != nil {
+		return registrationRequest, err
+	}
 
-	// TODO: get hostname of cluster - also needs to fail until we know the hostname (domain of cluster)
-	hostname := "dpock-test.not-real-hostname.lan"
-
-	id, regErr := suseconnect.SystemRegistration(sccConnection, code, hostname, nil)
+	id, regErr := suseconnect.SystemRegistration(sccConnection, code, hostname, systemInfo)
 	if regErr != nil {
 		return registrationRequest, regErr
 	}
 	logrus.Infof("!! check https://scc.suse.com/systems/%d\n", id)
 
-	newRegRequest := registrationRequest.DeepCopy()
-	newRegRequest.Status.SCCSystemId = id
-	// TODO add a status condition for this too...
-	// Lets set the link as the message for that status too: https://scc.suse.com/systems/%d
-	newRegRequest, err := h.registrationRequests.UpdateStatus(newRegRequest)
-	if err != nil {
-		return registrationRequest, err
-	}
-
 	// Ensure we keep the system credentials we were just issued
-	credentialsSecret, credsErr := util.StoreSccCredentials(h.secrets, registrationRequest, sccConnection.GetCredentials())
+	credentialsSecret, credsErr := suseconnect.StoreSccCredentials(h.secrets, sccConnection.GetCredentials())
 	if credsErr != nil {
 		return registrationRequest, credsErr
 	}
 
-	logrus.Info(credentialsSecret)
-	_, registrationErr := util.RegistrationFromRequest(h.registrations, registrationRequest, credentialsSecret)
-	if registrationErr != nil {
-		// TODO: consider conditions when this would fail, some may need IgnoreErr to prevent useless retries
-		return registrationRequest, registrationErr
+	newRegRequest := registrationRequest.DeepCopy()
+	newRegRequest.Status.SCCSystemId = id
+	newRegRequest.Status.SystemCredentialsSecretRef = &corev1.SecretReference{
+		Namespace: credentialsSecret.GetNamespace(),
+		Name:      credentialsSecret.GetName(),
 	}
-
-	// Setting the RequestProcessedTS will ensure this doesn't get reprocessed again
-	newRegRequest2 := newRegRequest.DeepCopy()
-	newRegRequest2.Status.RequestProcessedTS = time.Now().String()
-	newRegRequest2, err = h.registrationRequests.UpdateStatus(newRegRequest2)
+	// TODO add a status condition for this too...
+	// Lets set the link as the message for that status too: https://scc.suse.com/systems/%d
+	newRegRequest, err = h.registrationRequests.UpdateStatus(newRegRequest)
 	if err != nil {
-		return newRegRequest, err
+		return registrationRequest, err
 	}
 
-	return newRegRequest2, nil
+	return newRegRequest, nil
 }
 
 func (h *handler) prepareOfflineRegistrationRequest(registrationRequest *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
 	logrus.Info("[scc.registrationrequest-controller]: offline mode create request")
-	sccOfflineBlob, jsonErr := h.systemInfo.PreparedForSCC()
+	sccOfflineBlob, jsonErr := h.systemInfo.PreparedForSCCOffline()
 	if jsonErr != nil {
 		return registrationRequest, jsonErr
 	}
-	offlineRegistrationSecret, err := util.StoreSccOfflineRegistration(h.secrets, registrationRequest, sccOfflineBlob)
+	offlineRegistrationSecret, err := suseconnect.StoreSccOfflineRegistration(h.secrets, registrationRequest, sccOfflineBlob)
 	if err != nil {
 		return registrationRequest, err
 	}
@@ -244,6 +257,25 @@ func (h *handler) setReconcilingCondition(request *v1.RegistrationRequest, origi
 	logrus.Error(originalErr)
 
 	// TODO Update status
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var err error
+		updBackup, err := h.registrationRequests.Get(request.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		updBackup = updBackup.DeepCopy()
+		v1.ResourceConditionFailure.SetStatusBool(updBackup, true)
+		v1.ResourceConditionFailure.SetError(updBackup, "", originalErr)
+		v1.ResourceConditionReady.Message(updBackup, "Retrying")
+		v1.ResourceConditionProgressing.SetStatusBool(updBackup, false)
+
+		_, err = h.registrationRequests.UpdateStatus(updBackup)
+		return err
+	})
+	if err != nil {
+		return request, errors.New(originalErr.Error() + err.Error())
+	}
 
 	return request, originalErr
 }

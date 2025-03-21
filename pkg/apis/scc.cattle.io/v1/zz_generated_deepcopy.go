@@ -230,6 +230,11 @@ func (in *RegistrationStatus) DeepCopyInto(out *RegistrationStatus) {
 		*out = new(corev1.LocalObjectReference)
 		**out = **in
 	}
+	if in.RegistrationCodeSecretRef != nil {
+		in, out := &in.RegistrationCodeSecretRef, &out.RegistrationCodeSecretRef
+		*out = new(corev1.SecretReference)
+		**out = **in
+	}
 	if in.SystemCredentialsSecretRef != nil {
 		in, out := &in.SystemCredentialsSecretRef, &out.SystemCredentialsSecretRef
 		*out = new(corev1.SecretReference)
