@@ -9,7 +9,6 @@ import (
 	"github.com/rancher/rancher/pkg/settings"
 	"github.com/rancher/rancher/pkg/version"
 	"github.com/rancher/wrangler/v3/pkg/start"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 
@@ -53,20 +52,13 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 		logrus.Fatalf("Error getting namespace cattle-system %v", err)
 	}
 
-	// This needs a watcher - if URL is updated this operator needs to be informed
-	serverUrl := settings.ServerURL.Get()
-	if serverUrl == "" {
-		logrus.Fatalf("Missing server url")
-	}
 	// TODO: also get Node, Sockets, Vcpus, Clusters and watch those
-
 	return sccOperator{
 		sccFactory: registrationSccFactory,
 		core:       coreF,
 		systemInformation: &util.RancherSystemInfo{
 			ClusterUuid: uuid.MustParse(string(kubeSystemNS.UID)),
 			RancherUuid: uuid.MustParse(string(cattleSystemNS.UID)),
-			Url:         serverUrl,
 			Version:     version.Version,
 		},
 	}, nil
@@ -87,31 +79,27 @@ func (so *sccOperator) maybeFirstInit() error {
 	if err != nil {
 		logrus.Warn("Cannot find initial-scc-registration configmap; it will be skipped")
 	} else {
-		secretName, mode, err := util.ValidateInitializingConfigMap(configMap)
+		secretRef, mode, err := util.ValidateInitializingConfigMap(configMap)
 		if err != nil {
-			return err
-		}
-
-		newRegistrationRequest := &v1.RegistrationRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "rancher-",
-			},
-		}
-		newRegistrationRequest.Spec.Mode = *mode
-		if *mode == v1.Offline {
-			newRegistrationRequest.Spec.RegistrationCertificateSecretRef = &corev1.SecretReference{
-				Name: secretName,
-			}
+			logrus.Warn("Cannot validate initial-scc-registration configmap; it will be skipped")
 		} else {
-			newRegistrationRequest.Spec.RegistrationCodeSecretRef = &corev1.SecretReference{
-				Name: secretName,
+			newRegistrationRequest := &v1.RegistrationRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "rancher-",
+				},
 			}
-		}
+			newRegistrationRequest.Spec.Mode = *mode
+			if *mode == v1.Offline {
+				newRegistrationRequest.Spec.RegistrationCertificateSecretRef = secretRef
+			} else {
+				newRegistrationRequest.Spec.RegistrationCodeSecretRef = secretRef
+			}
 
-		_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
-		if err != nil {
-			logrus.Errorf("Cannot create registration request; %s", err)
-			return err
+			_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
+			if err != nil {
+				logrus.Errorf("Cannot create registration request; %s", err)
+				return err
+			}
 		}
 	}
 
@@ -153,6 +141,7 @@ func Setup(
 	registration.Register(
 		ctx,
 		initOperator.sccFactory.Scc().V1().Registration(),
+		initOperator.core.Core().V1().Secret(),
 		initOperator.systemInformation,
 	)
 
