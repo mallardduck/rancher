@@ -8,15 +8,14 @@ import (
 	"github.com/rancher/rancher/pkg/scc/util"
 	"github.com/rancher/rancher/pkg/settings"
 	"github.com/rancher/rancher/pkg/version"
-	"github.com/rancher/wrangler/v3/pkg/start"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 
 	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core"
 
 	"github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io"
+	"github.com/rancher/rancher/pkg/scc/controllers/activation"
 	"github.com/rancher/rancher/pkg/scc/controllers/registration"
-	"github.com/rancher/rancher/pkg/scc/controllers/registrationrequest"
 	"github.com/rancher/rancher/pkg/wrangler"
 	"github.com/sirupsen/logrus"
 )
@@ -64,18 +63,19 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 	}, nil
 }
 
-// maybeFirstInit will check if the initial `RegistrationRequest` seeding values exist
-// and if they need to be processed into a new `RegistrationRequest` (used during first boot ever)
-func (so *sccOperator) maybeFirstInit() error {
+// maybeFirstInit will check if the initial `Registration` seeding values exist
+// and if they need to be processed into a new `Registration` (used during first boot ever)
+func (so *sccOperator) maybeFirstInit() (*v1.Registration, error) {
 	logrus.Info("SCC controller MaybeFirstInit")
 	if strings.EqualFold(settings.SCCFirstStart.Get(), "false") {
 		logrus.Warn("Skipping the SCC controller first start; first start already completed previously.")
-		return nil
+		return nil, nil
 	}
 
 	// Check if the `cattle-system:initial-scc-registration` ConfigMap exists
 	// If it does not, then we simply proceed and mark the setting as false
 	configMap, err := so.core.Core().V1().ConfigMap().Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
+	var newRegistration *v1.Registration
 	if err != nil {
 		logrus.Warn("Cannot find initial-scc-registration configmap; it will be skipped")
 	} else {
@@ -83,22 +83,22 @@ func (so *sccOperator) maybeFirstInit() error {
 		if err != nil {
 			logrus.Warn("Cannot validate initial-scc-registration configmap; it will be skipped")
 		} else {
-			newRegistrationRequest := &v1.RegistrationRequest{
+			newRegistration = &v1.Registration{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "rancher-",
 				},
 			}
-			newRegistrationRequest.Spec.Mode = *mode
+			newRegistration.Spec.Mode = *mode
 			if *mode == v1.Offline {
-				newRegistrationRequest.Spec.RegistrationCertificateSecretRef = secretRef
+				newRegistration.Spec.RegistrationCertificateSecretRef = secretRef
 			} else {
-				newRegistrationRequest.Spec.RegistrationCodeSecretRef = secretRef
+				newRegistration.Spec.RegistrationCodeSecretRef = secretRef
 			}
 
-			_, err = so.sccFactory.Scc().V1().RegistrationRequest().Create(newRegistrationRequest)
+			_, err = so.sccFactory.Scc().V1().Registration().Create(newRegistration)
 			if err != nil {
 				logrus.Errorf("Cannot create registration request; %s", err)
-				return err
+				return nil, err
 			}
 		}
 	}
@@ -106,11 +106,11 @@ func (so *sccOperator) maybeFirstInit() error {
 	// At very end, we will set it to false so this doesn't run again
 	if !strings.EqualFold(settings.SCCFirstStart.Get(), "false") {
 		if err := settings.SCCFirstStart.Set("false"); err != nil {
-			return err
+			return newRegistration, err
 		}
 	}
 
-	return nil
+	return newRegistration, nil
 }
 
 func Setup(
@@ -124,30 +124,30 @@ func Setup(
 	}
 
 	// will be skipped on subsequent starts of the operator
-	err = initOperator.maybeFirstInit()
+	_, err = initOperator.maybeFirstInit()
 	if err != nil {
-		return fmt.Errorf("error creating first-start `RegistrationRequest`: %s", err.Error())
+		return fmt.Errorf("error creating first-start `Registration`: %s", err.Error())
 	}
 
 	logrus.Info("[scc-operator] Setup controllers here")
-	registrationrequest.Register(
+	registration.Register(
 		ctx,
-		initOperator.sccFactory.Scc().V1().RegistrationRequest(),
 		initOperator.sccFactory.Scc().V1().Registration(),
+		initOperator.sccFactory.Scc().V1().Activation(),
 		initOperator.core.Core().V1().ConfigMap(),
 		initOperator.core.Core().V1().Secret(),
 		initOperator.systemInformation,
 	)
-	registration.Register(
+	activation.Register(
 		ctx,
-		initOperator.sccFactory.Scc().V1().Registration(),
+		initOperator.sccFactory.Scc().V1().Activation(),
 		initOperator.core.Core().V1().Secret(),
 		initOperator.systemInformation,
 	)
 
-	// TODO: verify this is correct
-	if err := start.All(ctx, 2, initOperator.sccFactory); err != nil {
-		logrus.Fatalf("Error starting: %s", err.Error())
+	err = initOperator.sccFactory.Start(ctx, 1)
+	if err != nil {
+		return err
 	}
 
 	// TODO: Somewhere in operator, or in registration controller, the current Registration needs to be revalidated every 24 hours

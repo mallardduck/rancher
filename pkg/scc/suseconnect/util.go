@@ -105,7 +105,7 @@ func FetchSccCredentials(secrets controllerv1.SecretController) (connection.Cred
 	return credentials, nil
 }
 
-func StoreSccOfflineRegistration(secrets controllerv1.SecretController, request *v1.RegistrationRequest, offlineBlob []byte) (*corev1.Secret, error) {
+func StoreSccOfflineRegistration(secrets controllerv1.SecretController, request *v1.Registration, offlineBlob []byte) (*corev1.Secret, error) {
 	newSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.RancherSCCOfflineRequestSecretName,
