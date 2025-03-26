@@ -13,16 +13,6 @@ const (
 	ResourceConditionProgressing condition.Cond = "Progressing"
 	ResourceConditionReady       condition.Cond = "Ready"
 	ResourceConditionSynced      condition.Cond = "Synced"
-
-	RegistrationRequestConditionPrepared                  condition.Cond = "Prepared"
-	RegistrationRequestConditionSubscriptionInfoCollected condition.Cond = "SubscriptionInfoCollected"
-
-	RegistrationConditionHealthy condition.Cond = "Healthy"
-	RegistrationConditionPending condition.Cond = "Pending"
-	RegistrationConditionExpired condition.Cond = "Expired"
-	RegistrationConditionCloned  condition.Cond = "Cloned"
-	RegistrationConditionTimeout condition.Cond = "Timeout"
-	RegistrationConditionFailed  condition.Cond = "Failed"
 )
 
 // +genclient
@@ -86,13 +76,13 @@ type ActivationSpec struct {
 }
 
 type ActivationStatus struct {
-	Mode                         RegistrationMode                    `json:"mode"`
-	OriginRegistrationRequestRef *corev1.LocalObjectReference        `json:"originRegistrationRequest,omitempty"`
-	RegistrationCodeSecretRef    *corev1.SecretReference             `json:"registrationCodeSecretRef,omitempty"`
-	SystemCredentialsSecretRef   *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
-	Valid                        bool                                `json:"valid"`
-	LastValidatedTS              string                              `json:"lastValidatedTS"`
-	ValidUntilTS                 string                              `json:"validUntilTS"`
-	Certificate                  string                              `json:"certificate"`
-	Conditions                   []genericcondition.GenericCondition `json:"conditions,omitempty"`
+	Mode                       RegistrationMode                    `json:"mode"`
+	OriginRegistrationRef      *corev1.LocalObjectReference        `json:"originRegistration,omitempty"`
+	RegistrationCodeSecretRef  *corev1.SecretReference             `json:"registrationCodeSecretRef,omitempty"`
+	SystemCredentialsSecretRef *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
+	Valid                      bool                                `json:"valid"`
+	LastValidatedTS            string                              `json:"lastValidatedTS"`
+	ValidUntilTS               string                              `json:"validUntilTS"`
+	Certificate                string                              `json:"certificate"`
+	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
 }

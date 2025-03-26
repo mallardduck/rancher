@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/rancher/pkg/version"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -68,37 +69,37 @@ func ValidateInitializingConfigMap(sccInitializerConfig *corev1.ConfigMap) (*cor
 	return secretReference, &mode, nil
 }
 
-func RegistrationFromRequest(registrations registrationControllers.RegistrationController, request *v1.RegistrationRequest) (*v1.Registration, error) {
-	existingReg, err := registrations.Get(request.Name, metav1.GetOptions{})
-	if err != nil {
-		return existingReg, nil
+func ActivationFromRegistration(activations registrationControllers.ActivationController, request *v1.Registration) (*v1.Activation, error) {
+	existingActivation, err := activations.Get(request.Name, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return existingActivation, err
 	}
 
-	newRegStatus := v1.RegistrationStatus{
+	newStatus := v1.ActivationStatus{
 		Mode: request.Spec.Mode,
-		OriginRegistrationRequestRef: &corev1.LocalObjectReference{
+		OriginRegistrationRef: &corev1.LocalObjectReference{
 			Name: request.Name,
 		},
 		RegistrationCodeSecretRef:  request.Spec.RegistrationCodeSecretRef.DeepCopy(),
 		SystemCredentialsSecretRef: request.Status.SystemCredentialsSecretRef.DeepCopy(),
 	}
-	newRegistration := &v1.Registration{
+	newActivation := &v1.Activation{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: request.Name,
 		},
-		Spec:   v1.RegistrationSpec{},
-		Status: newRegStatus,
+		Spec:   v1.ActivationSpec{},
+		Status: newStatus,
 	}
 
-	newRegistration, err = registrations.Create(newRegistration)
+	newActivation, err = activations.Create(newActivation)
 	if err != nil {
-		return &v1.Registration{}, err
+		return &v1.Activation{}, err
 	}
 
-	newRegistration = newRegistration.DeepCopy()
-	newRegistration.Status = newRegStatus
+	newActivation = newActivation.DeepCopy()
+	newActivation.Status = newStatus
 
-	return registrations.UpdateStatus(newRegistration)
+	return activations.UpdateStatus(newActivation)
 }
 
 func GetProductIdentifier(override string) (string, string, string) {
