@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	RegistrationResourceName        = "registrations"
-	RegistrationRequestResourceName = "registrationrequests"
+	ActivationResourceName   = "activations"
+	RegistrationResourceName = "registrations"
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -53,10 +53,10 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
+		&Activation{},
+		&ActivationList{},
 		&Registration{},
 		&RegistrationList{},
-		&RegistrationRequest{},
-		&RegistrationRequestList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

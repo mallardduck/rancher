@@ -34,31 +34,31 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// RegistrationRequestController interface for managing RegistrationRequest resources.
-type RegistrationRequestController interface {
-	generic.NonNamespacedControllerInterface[*v1.RegistrationRequest, *v1.RegistrationRequestList]
+// ActivationController interface for managing Activation resources.
+type ActivationController interface {
+	generic.NonNamespacedControllerInterface[*v1.Activation, *v1.ActivationList]
 }
 
-// RegistrationRequestClient interface for managing RegistrationRequest resources in Kubernetes.
-type RegistrationRequestClient interface {
-	generic.NonNamespacedClientInterface[*v1.RegistrationRequest, *v1.RegistrationRequestList]
+// ActivationClient interface for managing Activation resources in Kubernetes.
+type ActivationClient interface {
+	generic.NonNamespacedClientInterface[*v1.Activation, *v1.ActivationList]
 }
 
-// RegistrationRequestCache interface for retrieving RegistrationRequest resources in memory.
-type RegistrationRequestCache interface {
-	generic.NonNamespacedCacheInterface[*v1.RegistrationRequest]
+// ActivationCache interface for retrieving Activation resources in memory.
+type ActivationCache interface {
+	generic.NonNamespacedCacheInterface[*v1.Activation]
 }
 
-// RegistrationRequestStatusHandler is executed for every added or modified RegistrationRequest. Should return the new status to be updated
-type RegistrationRequestStatusHandler func(obj *v1.RegistrationRequest, status v1.RegistrationRequestStatus) (v1.RegistrationRequestStatus, error)
+// ActivationStatusHandler is executed for every added or modified Activation. Should return the new status to be updated
+type ActivationStatusHandler func(obj *v1.Activation, status v1.ActivationStatus) (v1.ActivationStatus, error)
 
-// RegistrationRequestGeneratingHandler is the top-level handler that is executed for every RegistrationRequest event. It extends RegistrationRequestStatusHandler by a returning a slice of child objects to be passed to apply.Apply
-type RegistrationRequestGeneratingHandler func(obj *v1.RegistrationRequest, status v1.RegistrationRequestStatus) ([]runtime.Object, v1.RegistrationRequestStatus, error)
+// ActivationGeneratingHandler is the top-level handler that is executed for every Activation event. It extends ActivationStatusHandler by a returning a slice of child objects to be passed to apply.Apply
+type ActivationGeneratingHandler func(obj *v1.Activation, status v1.ActivationStatus) ([]runtime.Object, v1.ActivationStatus, error)
 
-// RegisterRegistrationRequestStatusHandler configures a RegistrationRequestController to execute a RegistrationRequestStatusHandler for every events observed.
+// RegisterActivationStatusHandler configures a ActivationController to execute a ActivationStatusHandler for every events observed.
 // If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
-func RegisterRegistrationRequestStatusHandler(ctx context.Context, controller RegistrationRequestController, condition condition.Cond, name string, handler RegistrationRequestStatusHandler) {
-	statusHandler := &registrationRequestStatusHandler{
+func RegisterActivationStatusHandler(ctx context.Context, controller ActivationController, condition condition.Cond, name string, handler ActivationStatusHandler) {
+	statusHandler := &activationStatusHandler{
 		client:    controller,
 		condition: condition,
 		handler:   handler,
@@ -66,31 +66,31 @@ func RegisterRegistrationRequestStatusHandler(ctx context.Context, controller Re
 	controller.AddGenericHandler(ctx, name, generic.FromObjectHandlerToHandler(statusHandler.sync))
 }
 
-// RegisterRegistrationRequestGeneratingHandler configures a RegistrationRequestController to execute a RegistrationRequestGeneratingHandler for every events observed, passing the returned objects to the provided apply.Apply.
+// RegisterActivationGeneratingHandler configures a ActivationController to execute a ActivationGeneratingHandler for every events observed, passing the returned objects to the provided apply.Apply.
 // If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
-func RegisterRegistrationRequestGeneratingHandler(ctx context.Context, controller RegistrationRequestController, apply apply.Apply,
-	condition condition.Cond, name string, handler RegistrationRequestGeneratingHandler, opts *generic.GeneratingHandlerOptions) {
-	statusHandler := &registrationRequestGeneratingHandler{
-		RegistrationRequestGeneratingHandler: handler,
-		apply:                                apply,
-		name:                                 name,
-		gvk:                                  controller.GroupVersionKind(),
+func RegisterActivationGeneratingHandler(ctx context.Context, controller ActivationController, apply apply.Apply,
+	condition condition.Cond, name string, handler ActivationGeneratingHandler, opts *generic.GeneratingHandlerOptions) {
+	statusHandler := &activationGeneratingHandler{
+		ActivationGeneratingHandler: handler,
+		apply:                       apply,
+		name:                        name,
+		gvk:                         controller.GroupVersionKind(),
 	}
 	if opts != nil {
 		statusHandler.opts = *opts
 	}
 	controller.OnChange(ctx, name, statusHandler.Remove)
-	RegisterRegistrationRequestStatusHandler(ctx, controller, condition, name, statusHandler.Handle)
+	RegisterActivationStatusHandler(ctx, controller, condition, name, statusHandler.Handle)
 }
 
-type registrationRequestStatusHandler struct {
-	client    RegistrationRequestClient
+type activationStatusHandler struct {
+	client    ActivationClient
 	condition condition.Cond
-	handler   RegistrationRequestStatusHandler
+	handler   ActivationStatusHandler
 }
 
 // sync is executed on every resource addition or modification. Executes the configured handlers and sends the updated status to the Kubernetes API
-func (a *registrationRequestStatusHandler) sync(key string, obj *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
+func (a *activationStatusHandler) sync(key string, obj *v1.Activation) (*v1.Activation, error) {
 	if obj == nil {
 		return obj, nil
 	}
@@ -129,8 +129,8 @@ func (a *registrationRequestStatusHandler) sync(key string, obj *v1.Registration
 	return obj, err
 }
 
-type registrationRequestGeneratingHandler struct {
-	RegistrationRequestGeneratingHandler
+type activationGeneratingHandler struct {
+	ActivationGeneratingHandler
 	apply apply.Apply
 	opts  generic.GeneratingHandlerOptions
 	gvk   schema.GroupVersionKind
@@ -139,12 +139,12 @@ type registrationRequestGeneratingHandler struct {
 }
 
 // Remove handles the observed deletion of a resource, cascade deleting every associated resource previously applied
-func (a *registrationRequestGeneratingHandler) Remove(key string, obj *v1.RegistrationRequest) (*v1.RegistrationRequest, error) {
+func (a *activationGeneratingHandler) Remove(key string, obj *v1.Activation) (*v1.Activation, error) {
 	if obj != nil {
 		return obj, nil
 	}
 
-	obj = &v1.RegistrationRequest{}
+	obj = &v1.Activation{}
 	obj.Namespace, obj.Name = kv.RSplit(key, "/")
 	obj.SetGroupVersionKind(a.gvk)
 
@@ -158,13 +158,13 @@ func (a *registrationRequestGeneratingHandler) Remove(key string, obj *v1.Regist
 		ApplyObjects()
 }
 
-// Handle executes the configured RegistrationRequestGeneratingHandler and pass the resulting objects to apply.Apply, finally returning the new status of the resource
-func (a *registrationRequestGeneratingHandler) Handle(obj *v1.RegistrationRequest, status v1.RegistrationRequestStatus) (v1.RegistrationRequestStatus, error) {
+// Handle executes the configured ActivationGeneratingHandler and pass the resulting objects to apply.Apply, finally returning the new status of the resource
+func (a *activationGeneratingHandler) Handle(obj *v1.Activation, status v1.ActivationStatus) (v1.ActivationStatus, error) {
 	if !obj.DeletionTimestamp.IsZero() {
 		return status, nil
 	}
 
-	objs, newStatus, err := a.RegistrationRequestGeneratingHandler(obj, status)
+	objs, newStatus, err := a.ActivationGeneratingHandler(obj, status)
 	if err != nil {
 		return newStatus, err
 	}
@@ -185,7 +185,7 @@ func (a *registrationRequestGeneratingHandler) Handle(obj *v1.RegistrationReques
 
 // isNewResourceVersion detects if a specific resource version was already successfully processed.
 // Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
-func (a *registrationRequestGeneratingHandler) isNewResourceVersion(obj *v1.RegistrationRequest) bool {
+func (a *activationGeneratingHandler) isNewResourceVersion(obj *v1.Activation) bool {
 	if !a.opts.UniqueApplyForResourceVersion {
 		return true
 	}
@@ -198,7 +198,7 @@ func (a *registrationRequestGeneratingHandler) isNewResourceVersion(obj *v1.Regi
 
 // storeResourceVersion keeps track of the latest resource version of an object for which Apply was executed
 // Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
-func (a *registrationRequestGeneratingHandler) storeResourceVersion(obj *v1.RegistrationRequest) {
+func (a *activationGeneratingHandler) storeResourceVersion(obj *v1.Activation) {
 	if !a.opts.UniqueApplyForResourceVersion {
 		return
 	}
