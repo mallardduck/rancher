@@ -26,6 +26,23 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// ActivationList is a list of Activation resources
+type ActivationList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []Activation `json:"items"`
+}
+
+func NewActivation(namespace, name string, obj Activation) *Activation {
+	obj.APIVersion, obj.Kind = SchemeGroupVersion.WithKind("Activation").ToAPIVersionAndKind()
+	obj.Name = name
+	obj.Namespace = namespace
+	return &obj
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // RegistrationList is a list of Registration resources
 type RegistrationList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -36,23 +53,6 @@ type RegistrationList struct {
 
 func NewRegistration(namespace, name string, obj Registration) *Registration {
 	obj.APIVersion, obj.Kind = SchemeGroupVersion.WithKind("Registration").ToAPIVersionAndKind()
-	obj.Name = name
-	obj.Namespace = namespace
-	return &obj
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// RegistrationRequestList is a list of RegistrationRequest resources
-type RegistrationRequestList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []RegistrationRequest `json:"items"`
-}
-
-func NewRegistrationRequest(namespace, name string, obj RegistrationRequest) *RegistrationRequest {
-	obj.APIVersion, obj.Kind = SchemeGroupVersion.WithKind("RegistrationRequest").ToAPIVersionAndKind()
 	obj.Name = name
 	obj.Namespace = namespace
 	return &obj

@@ -18,6 +18,6 @@ limitations under the License.
 
 package v1
 
-type RegistrationExpansion interface{}
+type ActivationExpansion interface{}
 
-type RegistrationRequestExpansion interface{}
+type RegistrationExpansion interface{}

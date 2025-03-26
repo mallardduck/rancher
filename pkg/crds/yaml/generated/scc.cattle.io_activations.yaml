@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
-  name: registrationrequests.scc.cattle.io
+  name: activations.scc.cattle.io
 spec:
   group: scc.cattle.io
   names:
-    kind: RegistrationRequest
-    listKind: RegistrationRequestList
-    plural: registrationrequests
-    singular: registrationrequest
+    kind: Activation
+    listKind: ActivationList
+    plural: activations
+    singular: activation
   scope: Cluster
   versions:
   - name: v1
@@ -37,48 +37,13 @@ spec:
             type: object
           spec:
             properties:
-              mode:
-                default: online
-                description: RegistrationMode enforces the valid registration modes
-                enum:
-                - online
-                - offline
-                type: string
-              registrationCertificateSecretRef:
-                description: |-
-                  SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                  in any namespace
-                properties:
-                  name:
-                    description: name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-              registrationCodeSecretRef:
-                description: |-
-                  SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                  in any namespace
-                properties:
-                  name:
-                    description: name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-            required:
-            - mode
+              checkNow:
+                type: boolean
             type: object
           status:
             properties:
+              certificate:
+                type: string
               conditions:
                 items:
                   properties:
@@ -107,7 +72,31 @@ spec:
                   - type
                   type: object
                 type: array
-              offlineRegistrationRequest:
+              lastValidatedTS:
+                type: string
+              mode:
+                description: RegistrationMode enforces the valid registration modes
+                enum:
+                - online
+                - offline
+                type: string
+              originRegistrationRequest:
+                description: |-
+                  LocalObjectReference contains enough information to let you locate the
+                  referenced object inside the same namespace.
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              registrationCodeSecretRef:
                 description: |-
                   SecretReference represents a Secret Reference. It has enough information to retrieve secret
                   in any namespace
@@ -122,12 +111,6 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
-              requestProcessedTS:
-                type: string
-              sccSystemId:
-                type: integer
-              subscriptionInfo:
-                type: string
               systemCredentialsSecretRef:
                 description: |-
                   SecretReference represents a Secret Reference. It has enough information to retrieve secret
@@ -143,6 +126,16 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              valid:
+                type: boolean
+              validUntilTS:
+                type: string
+            required:
+            - certificate
+            - lastValidatedTS
+            - mode
+            - valid
+            - validUntilTS
             type: object
         type: object
     served: true

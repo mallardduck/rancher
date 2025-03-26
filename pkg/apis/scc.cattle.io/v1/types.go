@@ -31,22 +31,22 @@ const (
 // +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type RegistrationRequest struct {
+type Registration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RegistrationRequestSpec   `json:"spec,omitempty"`
-	Status RegistrationRequestStatus `json:"status,omitempty"`
+	Spec   RegistrationSpec   `json:"spec,omitempty"`
+	Status RegistrationStatus `json:"status,omitempty"`
 }
 
-type RegistrationRequestSpec struct {
+type RegistrationSpec struct {
 	// +default:value="online"
 	Mode                             RegistrationMode        `json:"mode"` // Either offline or online
 	RegistrationCodeSecretRef        *corev1.SecretReference `json:"registrationCodeSecretRef,omitempty"`
 	RegistrationCertificateSecretRef *corev1.SecretReference `json:"registrationCertificateSecretRef,omitempty"`
 }
 
-type RegistrationRequestStatus struct {
+type RegistrationStatus struct {
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
 	SubscriptionInfo           string                              `json:"subscriptionInfo,omitempty"`
 	SCCSystemId                int                                 `json:"sccSystemId,omitempty"`
@@ -74,18 +74,18 @@ const (
 // +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type Registration struct {
+type Activation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              RegistrationSpec   `json:"spec,omitempty"`
-	Status            RegistrationStatus `json:"status,omitempty"`
+	Spec              ActivationSpec   `json:"spec,omitempty"`
+	Status            ActivationStatus `json:"status,omitempty"`
 }
 
-type RegistrationSpec struct {
+type ActivationSpec struct {
 	CheckNow bool `json:"checkNow,omitempty"`
 }
 
-type RegistrationStatus struct {
+type ActivationStatus struct {
 	Mode                         RegistrationMode                    `json:"mode"`
 	OriginRegistrationRequestRef *corev1.LocalObjectReference        `json:"originRegistrationRequest,omitempty"`
 	RegistrationCodeSecretRef    *corev1.SecretReference             `json:"registrationCodeSecretRef,omitempty"`
