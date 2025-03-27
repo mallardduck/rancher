@@ -126,3 +126,9 @@ func StoreSccOfflineRegistration(secrets controllerv1.SecretController, request 
 	// TODO: update Request status to point to creds secret
 	return created, nil
 }
+
+func SccCredentialStoreKeeper(secrets controllerv1.SecretController) func(credentials connection.Credentials) (*corev1.Secret, error) {
+	return func(credentials connection.Credentials) (*corev1.Secret, error) {
+		return StoreSccCredentials(secrets, credentials)
+	}
+}

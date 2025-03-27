@@ -13,6 +13,8 @@ const (
 	ResourceConditionProgressing condition.Cond = "Progressing"
 	ResourceConditionReady       condition.Cond = "Ready"
 	ResourceConditionSynced      condition.Cond = "Synced"
+
+	RegistrationConditionInvalidProduct condition.Cond = "InvalidProduct"
 )
 
 // +genclient

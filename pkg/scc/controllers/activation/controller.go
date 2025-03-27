@@ -3,6 +3,7 @@ package activation
 import (
 	"context"
 	"errors"
+	"fmt"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
@@ -38,24 +39,29 @@ func Register(
 }
 
 func (h *handler) OnActivationChange(key string, activation *v1.Activation) (*v1.Activation, error) {
+	if activation == nil {
+		return nil, fmt.Errorf("received nil activation")
+	}
+
 	logrus.Infof("[scc.activations-controller]: Received activations %q", key)
 	logrus.Info("[scc.activations-controller]: activations ", activation)
 
-	if activation.Spec.CheckNow {
+	var lastValidatedTS time.Time
+	if activation.Status.LastValidatedTS != "" {
+		lastValidatedTS, _ = time.Parse(time.RFC3339, activation.Status.LastValidatedTS)
+	}
+
+	if activation.Spec.CheckNow && !lastValidatedTS.IsZero() {
 		if activation.Status.Mode == v1.Offline {
 			updated := activation.DeepCopy()
+			// TODO: Also update the status to warn Offline users that `CheckNow` does nothing
 			updated.Spec = v1.ActivationSpec{}
-			updated, err := h.activations.Update(updated)
-			if err != nil {
-				return activation, err
-			}
-
-			// Also update the status to warn Offline users that `CheckNow` does nothing
-			return updated, nil
+			return h.activations.Update(updated)
 		} else {
 			updated := activation.DeepCopy()
+			updated.Spec = v1.ActivationSpec{}
 			updated.Status.Valid = false
-			updated, err := h.processOnlineRegistration(updated)
+			updated, err := h.processOnlineActivation(updated)
 			if err != nil {
 				return h.setReconcilingCondition(activation, err)
 			}
@@ -64,13 +70,17 @@ func (h *handler) OnActivationChange(key string, activation *v1.Activation) (*v1
 		}
 	}
 
+	if !lastValidatedTS.IsZero() && time.Now().Sub(lastValidatedTS) < time.Hour {
+		return activation, nil
+	}
+
 	if activation.Status.Mode == v1.Online {
-		registration, err := h.processOnlineRegistration(activation)
+		registration, err := h.processOnlineActivation(activation)
 		if err != nil {
 			return h.setReconcilingCondition(registration, err)
 		}
 	} else {
-		registration, err := h.processOfflineRegistration(activation)
+		registration, err := h.processOfflineActivation(activation)
 		if err != nil {
 			return h.setReconcilingCondition(registration, err)
 		}
@@ -95,7 +105,7 @@ func (h *handler) setReconcilingCondition(activation *v1.Activation, originalErr
 	return registration, originalErr
 }
 
-func (h *handler) processOnlineRegistration(activation *v1.Activation) (*v1.Activation, error) {
+func (h *handler) processOnlineActivation(activation *v1.Activation) (*v1.Activation, error) {
 	sccCredentials, credsErr := suseconnect.FetchSccCredentials(h.secrets)
 	if credsErr != nil {
 		return activation, credsErr
@@ -105,23 +115,18 @@ func (h *handler) processOnlineRegistration(activation *v1.Activation) (*v1.Acti
 		return activation, regErr
 	}
 
-	sccConnection := suseconnect.DefaultRancherConnection(sccCredentials)
+	sccConnection := suseconnect.DefaultRancherConnection(h.secrets, sccCredentials)
 
-	// TODO get rancher ID
+	// TODO: remove override value - it's really just for testing
 	identifier, version, arch := util.GetProductIdentifier("2.10.3")
-	meta, root, rootErr := sccRegistration.Activate(sccConnection, identifier, version, arch, regCode)
-	if rootErr != nil {
-		return activation, rootErr
-	}
-	logrus.Info(meta)
-	logrus.Info(root)
-
-	systemInfo, err := h.systemInfo.PreparedForSCC()
+	metaData, product, err := sccConnection.Activate(identifier, version, arch, regCode)
 	if err != nil {
 		return activation, err
 	}
+	logrus.Info(metaData)
+	logrus.Info(product)
 
-	status, statusErr := sccRegistration.Status(sccConnection, h.systemInfo.ServerUrl(), systemInfo)
+	status, statusErr := sccConnection.StatusPing(h.systemInfo)
 	if statusErr != nil {
 		return activation, statusErr
 	}
@@ -138,6 +143,6 @@ func (h *handler) processOnlineRegistration(activation *v1.Activation) (*v1.Acti
 	return activation, nil
 }
 
-func (h *handler) processOfflineRegistration(registration *v1.Activation) (*v1.Activation, error) {
+func (h *handler) processOfflineActivation(registration *v1.Activation) (*v1.Activation, error) {
 	return registration, nil
 }
