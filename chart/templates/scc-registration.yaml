@@ -57,7 +57,7 @@ metadata:
     app.kubernetes.io/part-of: "rancher"
 data:
   mode: {{ include "registration.mode" . | quote }}
-  {{- if .Values.registration.regCodeRef }}
+  {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
   regCodeSecretNamespace: {{ .Values.registration.regCodeRef.secretNamespace | default .Release.Namespace }}
   regCodeSecretName: "{{ .Values.registration.regCodeRef.secretName | default "rancher-scc-registration-code" }}" #configmap field using secret value
   {{- end }}
