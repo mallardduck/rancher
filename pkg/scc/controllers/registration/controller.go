@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/SUSE/connect-ng/pkg/connection"
 	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/pkg/errors"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
@@ -96,6 +95,13 @@ func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registra
 
 	// 4. At the end of either process the current Registration is either:
 	// 		a) fulfilled, b) expired or c) failed (retry?)
+	v1.ResourceConditionDone.SetStatusBool(registrationObj, true)
+	v1.ResourceConditionSynced.SetStatusBool(registrationObj, true)
+	registrationObj, err = h.registrations.UpdateStatus(registrationObj)
+	if err != nil {
+		return h.setReconcilingCondition(registrationObj, err)
+	}
+
 	// 4+. If it was a success, then a new Registration is created (and the old one deleted or marked as not current?)
 	return registrationObj, nil
 }
@@ -131,13 +137,13 @@ func (h *handler) processOnlineRegistration(registrationObj *v1.Registration) (*
 
 	// 2. Attempt SCC phone home with Online mode
 	sccCredentials := suseconnect.SccCredentials{}
-	sccConnection := suseconnect.DefaultRancherConnection(&sccCredentials)
-	registrationObj, err = h.verifyBasicSubscription(registrationObj, sccConnection, registrationCode)
+	sccConnection := suseconnect.DefaultRancherConnection(h.secrets, &sccCredentials)
+	registrationObj, err = h.verifyBasicSubscription(registrationObj, &sccConnection, registrationCode)
 	if err != nil {
 		return h.setReconcilingCondition(registrationObj, err)
 	}
 
-	registrationObj, err = h.createSystemRegistration(registrationObj, sccConnection, registrationCode)
+	registrationObj, err = h.createSystemRegistration(registrationObj, &sccConnection, registrationCode)
 	if err != nil {
 		return h.setReconcilingCondition(registrationObj, err)
 	}
@@ -162,11 +168,14 @@ func (h *handler) processOnlineRegistration(registrationObj *v1.Registration) (*
 	return registrationObj, nil
 }
 
-func (h *handler) verifyBasicSubscription(registrationObj *v1.Registration, sccConnection *connection.ApiConnection, regCode string) (*v1.Registration, error) {
-	subscriptionInfoResponse, err := suseconnect.SubscriptionInfo(sccConnection, regCode)
+func (h *handler) verifyBasicSubscription(registrationObj *v1.Registration, sccConnection *suseconnect.SccWrapper, regCode string) (*v1.Registration, error) {
+	subscriptionInfoResponse, err := sccConnection.SubscriptionInfo(regCode)
 	if err != nil {
 		return registrationObj, err
 	}
+
+	newRegRequest := registrationObj.DeepCopy()
+	newRegRequest.Status.SubscriptionInfo = string(subscriptionInfoResponse)
 
 	subscriptionInfo := registration.SubscriptionInfo{}
 	err = json.Unmarshal(subscriptionInfoResponse, &subscriptionInfo)
@@ -174,22 +183,27 @@ func (h *handler) verifyBasicSubscription(registrationObj *v1.Registration, sccC
 		return registrationObj, err
 	}
 
+	if !util.ValidateRancherProductClass(subscriptionInfo.ProductClasses) {
+		regError := errors.New("the provided Registration Code doesn't match Rancher product class")
+		v1.RegistrationConditionInvalidProduct.SetStatusBool(newRegRequest, true)
+		v1.RegistrationConditionInvalidProduct.SetError(newRegRequest, "", regError)
+
+		newRegRequest, newErr := h.registrations.UpdateStatus(newRegRequest)
+		if newErr != nil {
+			return newRegRequest, errors.Wrap(newErr, regError.Error())
+		}
+		return newRegRequest, nil
+	}
+
 	now := time.Now()
 	if subscriptionInfo.StartsAt.After(now) || subscriptionInfo.ExpiresAt.Before(now) {
 		return registrationObj, errors.New(fmt.Sprintf("subscription info is out of date"))
 	}
 
-	newRegRequest := registrationObj.DeepCopy()
-	newRegRequest.Status.SubscriptionInfo = string(subscriptionInfoResponse)
-	newRegRequest, err = h.registrations.UpdateStatus(newRegRequest)
-	if err != nil {
-		return registrationObj, err
-	}
-
-	return newRegRequest, nil
+	return h.registrations.UpdateStatus(newRegRequest)
 }
 
-func (h *handler) createSystemRegistration(registrationObj *v1.Registration, sccConnection *connection.ApiConnection, code string) (*v1.Registration, error) {
+func (h *handler) createSystemRegistration(registrationObj *v1.Registration, sccConnection *suseconnect.SccWrapper, code string) (*v1.Registration, error) {
 	// If this step has been done don't repeat it
 	if registrationObj.Status.SubscriptionInfo != "" && registrationObj.Status.SCCSystemId != 0 && registrationObj.Status.SystemCredentialsSecretRef != nil {
 		// TODO: this may need more verification
@@ -202,17 +216,11 @@ func (h *handler) createSystemRegistration(registrationObj *v1.Registration, scc
 		return registrationObj, err
 	}
 
-	id, regErr := suseconnect.SystemRegistration(sccConnection, code, hostname, systemInfo)
+	id, credentialsSecret, regErr := sccConnection.SystemRegistration(code, hostname, systemInfo)
 	if regErr != nil {
 		return registrationObj, regErr
 	}
 	logrus.Infof("!! check https://scc.suse.com/systems/%d\n", id)
-
-	// Ensure we keep the system credentials we were just issued
-	credentialsSecret, credsErr := suseconnect.StoreSccCredentials(h.secrets, sccConnection.GetCredentials())
-	if credsErr != nil {
-		return registrationObj, credsErr
-	}
 
 	newRegRequest := registrationObj.DeepCopy()
 	newRegRequest.Status.SCCSystemId = id
