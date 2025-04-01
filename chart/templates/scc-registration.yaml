@@ -40,11 +40,13 @@ spec:
   mode: {{ include "registration.mode" . | quote }}
   {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
   registrationCodeSecretRef:
-    name: "{{ .Values.registration.regCodeRef | default "rancher-scc-registration-code" }}" #configmap field using secret value
+    name: "{{ .Values.registration.regCodeRef | default "rancher-scc-registration-code" }}"
+    namespace: "cattle-system"
   {{- end }}
   {{- if or .Values.registration.certificate .Values.registration.certificateRef }}
   registrationCertificateSecretRef:
-    name: "{{ .Values.registration.certificateRef | default "rancher-scc-registration-certificate" }}" #configmap field using secret value
+    name: "{{ .Values.registration.certificateRef | default "rancher-scc-registration-certificate" }}"
+    namespace: "cattle-system"
   {{- end }}
 {{- else }}
 ---

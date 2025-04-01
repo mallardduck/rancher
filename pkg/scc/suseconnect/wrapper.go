@@ -5,13 +5,11 @@ import (
 	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/pkg/errors"
 	"github.com/rancher/rancher/pkg/scc/util"
-	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
-	v1 "k8s.io/api/core/v1"
 )
 
 type SccWrapper struct {
-	secrets v1core.SecretController
-	conn    *connection.ApiConnection
+	credentials connection.Credentials
+	conn        *connection.ApiConnection
 }
 
 func DefaultConnectionOptions() connection.Options {
@@ -21,14 +19,15 @@ func DefaultConnectionOptions() connection.Options {
 	return connection.DefaultOptions("rancher-scc-integration", "0.0.1", "en_US")
 }
 
-func DefaultRancherConnection(secrets v1core.SecretController, credentials connection.Credentials) SccWrapper {
-	options := DefaultConnectionOptions()
+func DefaultRancherConnection(credentials connection.Credentials) SccWrapper {
+	// TODO: don't panic on this, handle it better
 	if credentials == nil {
-		credentials = connection.NoCredentials{}
+		panic("credentials must be set")
 	}
+	options := DefaultConnectionOptions()
 	return SccWrapper{
-		secrets: secrets,
-		conn:    connection.New(options, credentials),
+		credentials: credentials,
+		conn:        connection.New(options, credentials),
 	}
 }
 
@@ -52,31 +51,19 @@ func (sw *SccWrapper) SubscriptionInfo(regCode string) ([]byte, error) {
 	return subinfoResponse, nil
 }
 
-func (sw *SccWrapper) SystemRegistration(regCode string, hostname string, systemInformation any) (int, *v1.Secret, error) {
+func (sw *SccWrapper) SystemRegistration(regCode string, hostname string, systemInformation any) (int, error) {
 	id, regErr := registration.Register(sw.conn, regCode, hostname, systemInformation)
 	if regErr != nil {
-		return 0, nil, errors.Wrap(regErr, "Cannot register system to SCC")
+		return 0, errors.Wrap(regErr, "Cannot register system to SCC")
 	}
 
-	// TODO: this may need to be done in errors and in success
-	credentialsSecret, credsErr := StoreSccCredentials(sw.secrets, sw.conn.GetCredentials())
-	if credsErr != nil {
-		return 0, credentialsSecret, credsErr
-	}
-
-	return id, credentialsSecret, nil
+	return id, nil
 }
 
 func (sw *SccWrapper) Activate(identifier string, version string, arch string, regCode string) (*registration.Metadata, *registration.Product, error) {
 	metaData, product, err := registration.Activate(sw.conn, identifier, version, arch, regCode)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	// TODO: this may need to be done in errors and in success
-	_, credsErr := StoreSccCredentials(sw.secrets, sw.conn.GetCredentials())
-	if credsErr != nil {
-		return nil, nil, credsErr
 	}
 
 	return metaData, product, err
@@ -91,12 +78,6 @@ func (sw *SccWrapper) StatusPing(systemInfo *util.RancherSystemInfo) (registrati
 	status, statusErr := registration.Status(sw.conn, systemInfo.ServerUrl(), preparedSystemInfo)
 	if statusErr != nil {
 		return status, statusErr
-	}
-
-	// TODO: this may need to be done in errors and in success
-	_, credsErr := StoreSccCredentials(sw.secrets, sw.conn.GetCredentials())
-	if credsErr != nil {
-		return status, credsErr
 	}
 
 	return status, nil

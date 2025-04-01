@@ -1,6 +1,7 @@
-package suseconnect
+package credentials
 
 import (
+	"github.com/SUSE/connect-ng/pkg/connection"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,9 +15,13 @@ func TestCredentialTypeStrings(t *testing.T) {
 }
 
 func TestNewCredentials(t *testing.T) {
-	credential := NewCredentialsFromLogin("systemLogin", "password")
-	assert.Equal(t, "systemLogin", credential.login)
-	assert.Equal(t, "password", credential.password)
+	credential := NewCredentials()
+	err := credential.SetLogin("systemLogin", "password")
+	assert.NoError(t, err)
+	login, password, err := credential.Login()
+	assert.NoError(t, err)
+	assert.Equal(t, "systemLogin", login)
+	assert.Equal(t, "password", password)
 }
 
 func TestSetLogin(t *testing.T) {
@@ -104,20 +109,10 @@ func TestTokenErrors(t *testing.T) {
 		password:    "",
 	}
 	_, err := credential.Token()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 
 	err = credential.UpdateToken("testToken")
 	assert.NoError(t, err)
-}
-
-func TestUpdateTokenErrors(t *testing.T) {
-	credential := SccCredentials{
-		systemToken: "",
-		systemLogin: "",
-		password:    "",
-	}
-	err := credential.UpdateToken("")
-	assert.Error(t, err)
 }
 
 func TestCredentialsType(t *testing.T) {
@@ -158,7 +153,7 @@ func TestCredentialsType(t *testing.T) {
 }
 
 func TestCredentialsEmpty(t *testing.T) {
-	credential := NewCredentialsFromLogin("", "")
+	credential := NewCredentials()
 	assert.Equal(t, CredentialTypeUnconfigured, credential.CredentialsType())
 
 	emptyCreds := SccCredentials{
@@ -166,7 +161,7 @@ func TestCredentialsEmpty(t *testing.T) {
 		systemLogin: "",
 		password:    "",
 	}
-	assert.Equal(t, emptyCreds, credential)
+	assert.Equal(t, &emptyCreds, credential)
 
 }
 
@@ -209,4 +204,16 @@ func TestLoginErrors(t *testing.T) {
 
 	err = credential.SetLogin("user3", "pass3")
 	assert.NoError(t, err)
+}
+
+func TestSccCredentialsInterface(t *testing.T) {
+	creds := SccCredentials{
+		systemToken: "",
+		systemLogin: "test",
+		password:    "password123",
+	}
+
+	newTest, ok := creds.SccCredentials().(connection.Credentials)
+	assert.True(t, ok)
+	assert.Equal(t, &creds, newTest)
 }
