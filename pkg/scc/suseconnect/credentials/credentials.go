@@ -1,10 +1,11 @@
-package suseconnect
+package credentials
 
 import (
 	"fmt"
+
 	"github.com/SUSE/connect-ng/pkg/connection"
+
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 type CredentialType int
@@ -68,8 +69,6 @@ func (c *SccCredentials) Token() (string, error) {
 
 // UpdateToken is called when a systemToken has changed
 func (c *SccCredentials) UpdateToken(newToken string) error {
-	logrus.Warn("systemToken set to empty string")
-
 	c.systemToken = newToken
 
 	return nil
@@ -107,6 +106,10 @@ func (c *SccCredentials) SetLogin(newLogin string, newPassword string) error {
 	return nil
 }
 
-func NewCredentials() connection.Credentials {
+func (c *SccCredentials) SccCredentials() connection.Credentials {
+	return c
+}
+
+func NewCredentials() *SccCredentials {
 	return &SccCredentials{}
 }

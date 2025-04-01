@@ -262,6 +262,7 @@ func (w *Context) WithAgent(userAgent string) *Context {
 	wContextCopy.API = wContextCopy.api.WithAgent(userAgent).V1()
 	wContextCopy.CRD = wContextCopy.crd.WithAgent(userAgent).V1()
 	wContextCopy.Plan = wContextCopy.plan.WithAgent(userAgent).V1()
+	wContextCopy.SCC = wContextCopy.sccReg.WithAgent(userAgent).V1()
 
 	return &wContextCopy
 }

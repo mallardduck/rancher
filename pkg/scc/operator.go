@@ -3,42 +3,34 @@ package scc
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/google/uuid"
-	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/util"
 	"github.com/rancher/rancher/pkg/settings"
 	"github.com/rancher/rancher/pkg/version"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 
-	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core"
+	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
+	sccv1 "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
+	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 
-	"github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io"
 	"github.com/rancher/rancher/pkg/scc/controllers/activation"
 	"github.com/rancher/rancher/pkg/scc/controllers/registration"
 	"github.com/rancher/rancher/pkg/wrangler"
-	"github.com/sirupsen/logrus"
 )
 
 type sccOperator struct {
-	sccFactory        *scc.Factory
-	core              *v1core.Factory
+	registrations     sccv1.RegistrationController
+	activations       sccv1.ActivationController
+	configMaps        v1core.ConfigMapController
+	secrets           v1core.SecretController
 	systemInformation *util.RancherSystemInfo
 }
 
 func setup(wContext *wrangler.Context) (sccOperator, error) {
-	restConfig := wContext.RESTConfig
-	registrationSccFactory, err := scc.NewFactoryFromConfig(restConfig)
-	if err != nil {
-		return sccOperator{}, fmt.Errorf("error building scc controllers: %s", err.Error())
-	}
-
-	coreF, err := v1core.NewFactoryFromConfig(restConfig)
-	if err != nil {
-		return sccOperator{}, fmt.Errorf("error building core controllers: %s", err.Error())
-	}
-
-	namespaces := coreF.Core().V1().Namespace()
+	namespaces := wContext.Core.Namespace()
 	kubeSystemNS, err := namespaces.Get("kube-system", metav1.GetOptions{})
 	if err != nil {
 		// fatal log here, because we need the kube-system ns UID while creating any backup file
@@ -53,8 +45,10 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 
 	// TODO: also get Node, Sockets, Vcpus, Clusters and watch those
 	return sccOperator{
-		sccFactory: registrationSccFactory,
-		core:       coreF,
+		registrations: wContext.SCC.Registration(),
+		activations:   wContext.SCC.Activation(),
+		configMaps:    wContext.Core.ConfigMap(),
+		secrets:       wContext.Core.Secret(),
 		systemInformation: &util.RancherSystemInfo{
 			ClusterUuid: uuid.MustParse(string(kubeSystemNS.UID)),
 			RancherUuid: uuid.MustParse(string(cattleSystemNS.UID)),
@@ -74,7 +68,7 @@ func (so *sccOperator) maybeFirstInit() (*v1.Registration, error) {
 
 	// Check if the `cattle-system:initial-scc-registration` ConfigMap exists
 	// If it does not, then we simply proceed and mark the setting as false
-	configMap, err := so.core.Core().V1().ConfigMap().Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
+	configMap, err := so.configMaps.Get("cattle-system", "initial-scc-registration", metav1.GetOptions{})
 	var newRegistration *v1.Registration
 	if err != nil {
 		logrus.Warn("Cannot find initial-scc-registration configmap; it will be skipped")
@@ -95,7 +89,7 @@ func (so *sccOperator) maybeFirstInit() (*v1.Registration, error) {
 				newRegistration.Spec.RegistrationCodeSecretRef = secretRef
 			}
 
-			_, err = so.sccFactory.Scc().V1().Registration().Create(newRegistration)
+			_, err = so.registrations.Create(newRegistration)
 			if err != nil {
 				logrus.Errorf("Cannot create registration request; %s", err)
 				return nil, err
@@ -132,23 +126,18 @@ func Setup(
 	logrus.Info("[scc-operator] Setup controllers here")
 	registration.Register(
 		ctx,
-		initOperator.sccFactory.Scc().V1().Registration(),
-		initOperator.sccFactory.Scc().V1().Activation(),
-		initOperator.core.Core().V1().ConfigMap(),
-		initOperator.core.Core().V1().Secret(),
+		initOperator.registrations,
+		initOperator.activations,
+		initOperator.configMaps,
+		initOperator.secrets,
 		initOperator.systemInformation,
 	)
 	activation.Register(
 		ctx,
-		initOperator.sccFactory.Scc().V1().Activation(),
-		initOperator.core.Core().V1().Secret(),
+		initOperator.activations,
+		initOperator.secrets,
 		initOperator.systemInformation,
 	)
-
-	err = initOperator.sccFactory.Start(ctx, 1)
-	if err != nil {
-		return err
-	}
 
 	// TODO: Somewhere in operator, or in registration controller, the current Registration needs to be revalidated every 24 hours
 

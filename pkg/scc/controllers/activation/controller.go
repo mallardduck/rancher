@@ -7,6 +7,7 @@ import (
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
+	"github.com/rancher/rancher/pkg/scc/suseconnect/credentials"
 	"github.com/rancher/rancher/pkg/scc/util"
 	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
@@ -16,10 +17,11 @@ import (
 )
 
 type handler struct {
-	ctx         context.Context
-	activations registrationControllers.ActivationController
-	secrets     v1core.SecretController
-	systemInfo  *util.RancherSystemInfo
+	ctx            context.Context
+	activations    registrationControllers.ActivationController
+	secrets        v1core.SecretController
+	sccCredentials *credentials.CredentialSecretsAdapter
+	systemInfo     *util.RancherSystemInfo
 }
 
 func Register(
@@ -29,10 +31,11 @@ func Register(
 	systemInfo *util.RancherSystemInfo,
 ) {
 	controller := &handler{
-		ctx:         ctx,
-		activations: activations,
-		secrets:     secrets,
-		systemInfo:  systemInfo,
+		ctx:            ctx,
+		activations:    activations,
+		secrets:        secrets,
+		sccCredentials: credentials.New(secrets),
+		systemInfo:     systemInfo,
 	}
 
 	activations.OnChange(ctx, "activations", controller.OnActivationChange)
@@ -106,16 +109,13 @@ func (h *handler) setReconcilingCondition(activation *v1.Activation, originalErr
 }
 
 func (h *handler) processOnlineActivation(activation *v1.Activation) (*v1.Activation, error) {
-	sccCredentials, credsErr := suseconnect.FetchSccCredentials(h.secrets)
-	if credsErr != nil {
-		return activation, credsErr
-	}
+	_ = h.sccCredentials.Refresh()
 	regCode, regErr := suseconnect.FetchSccRegistrationCodeFrom(h.secrets, activation.Status.RegistrationCodeSecretRef)
 	if regErr != nil {
 		return activation, regErr
 	}
 
-	sccConnection := suseconnect.DefaultRancherConnection(h.secrets, sccCredentials)
+	sccConnection := suseconnect.DefaultRancherConnection(h.sccCredentials.SccCredentials())
 
 	// TODO: remove override value - it's really just for testing
 	identifier, version, arch := util.GetProductIdentifier("2.10.3")

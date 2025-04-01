@@ -7,6 +7,7 @@ import (
 	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/pkg/errors"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
+	"github.com/rancher/rancher/pkg/scc/suseconnect/credentials"
 	"github.com/rancher/rancher/pkg/scc/util"
 	"github.com/rancher/wrangler/v3/pkg/genericcondition"
 	corev1 "k8s.io/api/core/v1"
@@ -22,12 +23,13 @@ import (
 )
 
 type handler struct {
-	ctx           context.Context
-	registrations registrationControllers.RegistrationController
-	activations   registrationControllers.ActivationController
-	configMaps    v1core.ConfigMapController
-	secrets       v1core.SecretController
-	systemInfo    *util.RancherSystemInfo
+	ctx            context.Context
+	registrations  registrationControllers.RegistrationController
+	activations    registrationControllers.ActivationController
+	configMaps     v1core.ConfigMapController
+	secrets        v1core.SecretController
+	sccCredentials *credentials.CredentialSecretsAdapter
+	systemInfo     *util.RancherSystemInfo
 }
 
 func Register(
@@ -39,12 +41,13 @@ func Register(
 	systemInfo *util.RancherSystemInfo,
 ) {
 	controller := &handler{
-		ctx:           ctx,
-		registrations: registrations,
-		activations:   activations,
-		configMaps:    configMaps,
-		secrets:       secrets,
-		systemInfo:    systemInfo,
+		ctx:            ctx,
+		registrations:  registrations,
+		activations:    activations,
+		configMaps:     configMaps,
+		secrets:        secrets,
+		sccCredentials: credentials.New(secrets),
+		systemInfo:     systemInfo,
 	}
 
 	registrations.OnChange(ctx, "registrations", controller.OnRegistrationChange)
@@ -107,6 +110,7 @@ func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registra
 }
 
 func (h *handler) processOnlineRegistration(registrationObj *v1.Registration) (*v1.Registration, error) {
+	_ = h.sccCredentials.Refresh()
 	logrus.Info("[scc.registration-controller]: online mode ")
 
 	v1.ResourceConditionProgressing.SetStatusBool(registrationObj, true)
@@ -136,8 +140,7 @@ func (h *handler) processOnlineRegistration(registrationObj *v1.Registration) (*
 	}
 
 	// 2. Attempt SCC phone home with Online mode
-	sccCredentials := suseconnect.SccCredentials{}
-	sccConnection := suseconnect.DefaultRancherConnection(h.secrets, &sccCredentials)
+	sccConnection := suseconnect.DefaultRancherConnection(h.sccCredentials.SccCredentials())
 	registrationObj, err = h.verifyBasicSubscription(registrationObj, &sccConnection, registrationCode)
 	if err != nil {
 		return h.setReconcilingCondition(registrationObj, err)
@@ -216,7 +219,7 @@ func (h *handler) createSystemRegistration(registrationObj *v1.Registration, scc
 		return registrationObj, err
 	}
 
-	id, credentialsSecret, regErr := sccConnection.SystemRegistration(code, hostname, systemInfo)
+	id, regErr := sccConnection.SystemRegistration(code, hostname, systemInfo)
 	if regErr != nil {
 		return registrationObj, regErr
 	}
@@ -225,8 +228,8 @@ func (h *handler) createSystemRegistration(registrationObj *v1.Registration, scc
 	newRegRequest := registrationObj.DeepCopy()
 	newRegRequest.Status.SCCSystemId = id
 	newRegRequest.Status.SystemCredentialsSecretRef = &corev1.SecretReference{
-		Namespace: credentialsSecret.GetNamespace(),
-		Name:      credentialsSecret.GetName(),
+		Namespace: credentials.Namespace,
+		Name:      credentials.SecretName,
 	}
 	// TODO add a status condition for this too...
 	// Lets set the link as the message for that status too: https://scc.suse.com/systems/%d
