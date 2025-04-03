@@ -2,6 +2,7 @@ package scc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -29,7 +30,7 @@ type sccOperator struct {
 	systemInformation *util.RancherSystemInfo
 }
 
-func setup(wContext *wrangler.Context) (sccOperator, error) {
+func setup(wContext *wrangler.Context) (*sccOperator, error) {
 	namespaces := wContext.Core.Namespace()
 	kubeSystemNS, err := namespaces.Get("kube-system", metav1.GetOptions{})
 	if err != nil {
@@ -37,21 +38,22 @@ func setup(wContext *wrangler.Context) (sccOperator, error) {
 		logrus.Fatalf("Error getting namespace kube-system %v", err)
 	}
 
-	cattleSystemNS, err := namespaces.Get("cattle-system", metav1.GetOptions{})
-	if err != nil {
-		// fatal log here, because we need the kube-system ns UID while creating any backup file
-		logrus.Fatalf("Error getting namespace cattle-system %v", err)
+	rancherUuid := settings.InstallUUID.Get()
+	if rancherUuid == "" {
+		err := errors.New("no rancher uuid found")
+		logrus.Fatalf("Error getting rancher uuid: %v", err)
+		return nil, err
 	}
 
 	// TODO: also get Node, Sockets, Vcpus, Clusters and watch those
-	return sccOperator{
+	return &sccOperator{
 		registrations: wContext.SCC.Registration(),
 		activations:   wContext.SCC.Activation(),
 		configMaps:    wContext.Core.ConfigMap(),
 		secrets:       wContext.Core.Secret(),
 		systemInformation: &util.RancherSystemInfo{
+			RancherUuid: uuid.MustParse(rancherUuid),
 			ClusterUuid: uuid.MustParse(string(kubeSystemNS.UID)),
-			RancherUuid: uuid.MustParse(string(cattleSystemNS.UID)),
 			Version:     version.Version,
 		},
 	}, nil
@@ -94,6 +96,7 @@ func (so *sccOperator) maybeFirstInit() (*v1.Registration, error) {
 				logrus.Errorf("Cannot create registration request; %s", err)
 				return nil, err
 			}
+			_ = so.configMaps.Delete(configMap.Namespace, configMap.Name, &metav1.DeleteOptions{})
 		}
 	}
 

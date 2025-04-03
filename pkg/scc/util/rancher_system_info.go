@@ -9,18 +9,14 @@ import (
 )
 
 type RancherSystemInfo struct {
-	ClusterUuid uuid.UUID
 	RancherUuid uuid.UUID
+	ClusterUuid uuid.UUID
 	// TODO: these count based items may make more sense as getters on `RancherSystemInfo`
 	Nodes    int
 	Sockets  int
 	Vcpus    int
 	Clusters int
 	Version  string
-}
-
-func (rsi *RancherSystemInfo) Uuid() uuid.UUID {
-	return combinedUUID(rsi.ClusterUuid, rsi.RancherUuid)
 }
 
 func (rsi *RancherSystemInfo) ServerUrl() string {
@@ -41,7 +37,7 @@ func (rsi *RancherSystemInfo) preparedForSCC() ([]byte, error) {
 	}
 
 	sccInfo := &RancherSCCInfo{
-		UUID:     rsi.Uuid(),
+		UUID:     rsi.RancherUuid,
 		Url:      rsi.ServerUrl(),
 		Nodes:    rsi.Nodes,
 		Sockets:  rsi.Sockets,
@@ -70,12 +66,4 @@ func (rsi *RancherSystemInfo) PreparedForSCC() (registration.SystemInformation, 
 
 func (rsi *RancherSystemInfo) PreparedForSCCOffline() ([]byte, error) {
 	return rsi.preparedForSCC()
-}
-
-func combinedUUID(uuid1, uuid2 uuid.UUID) uuid.UUID {
-	// Combine the byte representations of the two UUIDs.
-	combinedBytes := append(uuid1[:], uuid2[:]...)
-
-	// Use uuid.NewSHA1 to generate the combined UUID.
-	return uuid.NewSHA1(uuid1, combinedBytes)
 }
