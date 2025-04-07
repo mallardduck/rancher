@@ -39,6 +39,8 @@ func Register(
 	}
 
 	activations.OnChange(ctx, "activations", controller.OnActivationChange)
+	// TODO: EnqueueAfter - revalidate every 24 hours
+	// Ex: https://github.com/rancher/rancher/blob/d6b40c3acd945f0c8fe463ff96d144561c9640c3/pkg/controllers/dashboard/helm/repo.go#L95
 }
 
 func (h *handler) OnActivationChange(key string, activation *v1.Activation) (*v1.Activation, error) {
@@ -58,6 +60,7 @@ func (h *handler) OnActivationChange(key string, activation *v1.Activation) (*v1
 		if activation.Status.Mode == v1.Offline {
 			updated := activation.DeepCopy()
 			// TODO: Also update the status to warn Offline users that `CheckNow` does nothing
+			// Better alternative, webhook prevent updates if mode=offline
 			updated.Spec = v1.ActivationSpec{}
 			return h.activations.Update(updated)
 		} else {
