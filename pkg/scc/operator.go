@@ -45,7 +45,7 @@ func setup(wContext *wrangler.Context) (*sccOperator, error) {
 		return nil, err
 	}
 
-	// TODO: also get Node, Sockets, Vcpus, Clusters and watch those
+	// TODO: also get Node, Sockets, v-cpus, Clusters and watch those
 	return &sccOperator{
 		registrations: wContext.SCC.Registration(),
 		activations:   wContext.SCC.Activation(),

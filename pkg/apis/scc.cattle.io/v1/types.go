@@ -85,6 +85,6 @@ type ActivationStatus struct {
 	Valid                      bool                                `json:"valid"`
 	LastValidatedTS            string                              `json:"lastValidatedTS"`
 	ValidUntilTS               string                              `json:"validUntilTS"`
-	Certificate                string                              `json:"certificate"`
+	Certificate                string                              `json:"certificate,omitempty"`
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
 }

@@ -132,9 +132,11 @@ func (h *handler) processOnlineActivation(activation *v1.Activation) (*v1.Activa
 	}
 
 	if status == sccRegistration.Registered {
+		now := time.Now()
 		logrus.Info("[scc.activation-controller]: Successfully registered activation")
 		updated := activation.DeepCopy()
-		updated.Status.LastValidatedTS = time.Now().UTC().Format(time.RFC3339)
+		updated.Status.LastValidatedTS = now.UTC().Format(time.RFC3339)
+		updated.Status.ValidUntilTS = now.Add(24 * time.Hour).UTC().Format(time.RFC3339)
 		updated.Status.Valid = true
 		updated.Spec = v1.ActivationSpec{}
 		return h.activations.UpdateStatus(updated)

@@ -11,12 +11,12 @@ import (
 type RancherSystemInfo struct {
 	RancherUuid uuid.UUID
 	ClusterUuid uuid.UUID
+	Version     string
 	// TODO: these count based items may make more sense as getters on `RancherSystemInfo`
 	Nodes    int
 	Sockets  int
 	Vcpus    int
 	Clusters int
-	Version  string
 }
 
 func (rsi *RancherSystemInfo) ServerUrl() string {
@@ -37,14 +37,14 @@ func (rsi *RancherSystemInfo) preparedForSCC() ([]byte, error) {
 	}
 
 	sccInfo := &RancherSCCInfo{
-		UUID:     rsi.RancherUuid,
-		Url:      rsi.ServerUrl(),
+		UUID:    rsi.RancherUuid,
+		Url:     rsi.ServerUrl(),
+		Version: "2.10.3",
+		//Version:  rsi.Version,
 		Nodes:    rsi.Nodes,
 		Sockets:  rsi.Sockets,
 		Vcpus:    rsi.Vcpus,
 		Clusters: rsi.Clusters,
-		//Version:  rsi.Version,
-		Version: "2.10.3",
 	}
 
 	return json.Marshal(sccInfo)
