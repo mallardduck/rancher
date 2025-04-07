@@ -301,14 +301,6 @@ func (r *Rancher) Start(ctx context.Context) error {
 		}
 	}
 
-	if features.RancherSCCRegistrationExtension.Enabled() {
-		logrus.Info("[rancher::Start] starting RancherSCCRegistrationExtension")
-		err := scc.Setup(ctx, r.Wrangler)
-		if err != nil {
-			return err
-		}
-	}
-
 	r.Wrangler.OnLeader(func(ctx context.Context) error {
 		if err := dashboarddata.Add(ctx, r.Wrangler, localClusterEnabled(r.opts), r.opts.AddLocal == "false", r.opts.Embedded); err != nil {
 			return err
@@ -317,6 +309,14 @@ func (r *Rancher) Start(ctx context.Context) error {
 			return dashboard.Register(ctx, r.Wrangler, r.opts.Embedded, r.opts.ClusterRegistry)
 		}); err != nil {
 			return err
+		}
+
+		if features.RancherSCCRegistrationExtension.Enabled() {
+			logrus.Info("[rancher::Start] starting RancherSCCRegistrationExtension")
+			err := scc.Setup(ctx, r.Wrangler)
+			if err != nil {
+				return err
+			}
 		}
 
 		return runMigrations(r.Wrangler)
