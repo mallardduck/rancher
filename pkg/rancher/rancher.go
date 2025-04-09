@@ -313,6 +313,7 @@ func (r *Rancher) Start(ctx context.Context) error {
 
 		if features.RancherSCCRegistrationExtension.Enabled() {
 			logrus.Info("[rancher::Start] starting RancherSCCRegistrationExtension")
+			// TODO: Also trigger install of the UI extension?
 			err := scc.Setup(ctx, r.Wrangler)
 			if err != nil {
 				return err
