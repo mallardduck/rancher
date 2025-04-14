@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rancher/rancher/pkg/scc/util"
@@ -28,6 +30,7 @@ type sccOperator struct {
 	configMaps        v1core.ConfigMapController
 	secrets           v1core.SecretController
 	systemInformation *util.RancherSystemInfo
+	serverUrlReady    chan struct{}
 }
 
 func setup(wContext *wrangler.Context) (*sccOperator, error) {
@@ -56,7 +59,20 @@ func setup(wContext *wrangler.Context) (*sccOperator, error) {
 			ClusterUuid: uuid.MustParse(string(kubeSystemNS.UID)),
 			Version:     version.Version,
 		},
+		serverUrlReady: make(chan struct{}),
 	}, nil
+}
+
+func (so *sccOperator) waitForServerURL(ctx context.Context) {
+	logrus.Info("[scc-operator] Waiting for server-url to be ready")
+	wait.UntilWithContext(ctx, func(c context.Context) {
+		if so.systemInformation.ServerUrl() != "" {
+			logrus.Info("[scc-operator] Server URL is now ready.")
+			close(so.serverUrlReady)
+		} else {
+			logrus.Info("[scc-operator] Server URL is not ready yet.")
+		}
+	}, 15*time.Second)
 }
 
 // maybeFirstInit will check if the initial `Registration` seeding values exist
@@ -114,35 +130,44 @@ func Setup(
 	ctx context.Context,
 	wContext *wrangler.Context,
 ) error {
-	logrus.Info("Starting SCC Operator")
+	logrus.Debug("Starting SCC Operator")
 	initOperator, err := setup(wContext)
 	if err != nil {
 		return fmt.Errorf("error setting up scc operator: %s", err.Error())
 	}
 
-	// will be skipped on subsequent starts of the operator
-	_, err = initOperator.maybeFirstInit()
-	if err != nil {
-		return fmt.Errorf("error creating first-start `Registration`: %s", err.Error())
-	}
+	// Start goroutine to wait for Server URL to be configured
+	go func() {
+		logrus.Info("[scc-operator] Waiting for Server URL to be configured and ready")
+		<-initOperator.serverUrlReady
+		logrus.Info("[scc-operator] Server URL is now ready.")
+		_, err = initOperator.maybeFirstInit()
+		if err != nil {
+			logrus.Errorf("error creating first-start `Registration`: %s", err.Error())
+		}
 
-	logrus.Info("[scc-operator] Setup controllers here")
-	registration.Register(
-		ctx,
-		initOperator.registrations,
-		initOperator.activations,
-		initOperator.configMaps,
-		initOperator.secrets,
-		initOperator.systemInformation,
-	)
-	activation.Register(
-		ctx,
-		initOperator.activations,
-		initOperator.secrets,
-		initOperator.systemInformation,
-	)
+		logrus.Debug("[scc-operator] Setting up controllers")
+		registration.Register(
+			ctx,
+			initOperator.registrations,
+			initOperator.activations,
+			initOperator.configMaps,
+			initOperator.secrets,
+			initOperator.systemInformation,
+		)
+		activation.Register(
+			ctx,
+			initOperator.activations,
+			initOperator.secrets,
+			initOperator.systemInformation,
+		)
+	}()
+
+	go initOperator.waitForServerURL(ctx)
 
 	// TODO: Somewhere in operator, or in registration controller, the current Registration needs to be revalidated every 24 hours
+
+	logrus.Info("[scc-operator] Initial setup initiated. When Server URL is configured full setup will complete.")
 
 	return nil
 }
