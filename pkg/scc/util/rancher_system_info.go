@@ -21,6 +21,9 @@ type RancherSystemInfo struct {
 
 func (rsi *RancherSystemInfo) ServerUrl() string {
 	serverUrl := settings.ServerURL.Get()
+	if serverUrl == "" {
+		return ""
+	}
 	parsed, _ := url.Parse(serverUrl)
 	return parsed.Host
 }
