@@ -61,7 +61,7 @@ func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registra
 	logrus.Infof("[scc.registration-controller]: Received registration %q", name)
 	logrus.Info("[scc.registration-controller]: Registration ", registrationObj)
 	// 1. Verify Registration is not already fulfilled or expired,
-	// TODO: implement expiration - gist, Registration shouldn't repeat to infinity when issues.
+	// TODO: implement expiration - gist: Registration shouldn't repeat to infinity when issues.
 	// Ideally we would eventually timeout a Registration after it fails X times or for X minutes
 	if registrationObj.Status.RequestProcessedTS != "" {
 		logrus.Info("[scc.registration-controller]: Registration already processed")
