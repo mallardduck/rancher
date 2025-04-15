@@ -131,7 +131,6 @@ spec:
               validUntilTS:
                 type: string
             required:
-            - certificate
             - lastValidatedTS
             - mode
             - valid
