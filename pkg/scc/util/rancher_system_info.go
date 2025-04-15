@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/rancher/rancher/pkg/wrangler"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/url"
 
 	"github.com/SUSE/connect-ng/pkg/registration"
@@ -54,16 +55,37 @@ func (rsi *RancherSystemInfo) preparedForSCC() ([]byte, error) {
 	}
 
 	// Fetch current node count
-	clusterCount := rsi.wContext.Mgmt.Cluster().List()
+	nodeCount := 0
+	socketsCount := 1 // TODO: i don't think rancher exposes this...because k8s doesnt
+	vcpusCount := 0
+	mgmtNodes, nodesErr := rsi.wContext.Mgmt.Node().List("local", metav1.ListOptions{})
+	if nodesErr == nil {
+		nodeCount = len(mgmtNodes.Items)
+		for _, node := range mgmtNodes.Items {
+			cpuCores := node.Status.InternalNodeStatus.Capacity.Cpu()
+			if cpuCores != nil {
+				vcpusCount += cpuCores.Size()
+			}
+		}
+	}
+
+	// Fetch current cluster count
+	clusterCount := 0
+	clusterList, clusterErr := rsi.wContext.Mgmt.Cluster().List(metav1.ListOptions{})
+	if clusterErr == nil {
+		clusterCount = len(clusterList.Items)
+	}
+
+	// TODO: collect and organize downstream counts
 
 	sccInfo := &RancherSCCInfo{
 		UUID:     rsi.RancherUuid,
 		Url:      rsi.ServerUrl(),
 		Version:  rsi.Version,
-		Nodes:    1,
-		Sockets:  1,
-		Vcpus:    1,
-		Clusters: 0,
+		Nodes:    nodeCount,
+		Sockets:  socketsCount,
+		Vcpus:    vcpusCount,
+		Clusters: clusterCount,
 	}
 
 	return json.Marshal(sccInfo)
