@@ -12,8 +12,6 @@ import (
 	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
 	"time"
-
-	sccRegistration "github.com/SUSE/connect-ng/pkg/registration"
 )
 
 type handler struct {
@@ -118,7 +116,7 @@ func (h *handler) processOnlineActivation(activation *v1.Activation) (*v1.Activa
 		return activation, regErr
 	}
 
-	sccConnection := suseconnect.DefaultRancherConnection(h.sccCredentials.SccCredentials())
+	sccConnection := suseconnect.DefaultRancherConnection(h.sccCredentials.SccCredentials(), h.systemInfo)
 
 	// TODO: remove override value - it's really just for testing
 	identifier, version, arch := util.GetProductIdentifier("2.10.3")
@@ -129,23 +127,20 @@ func (h *handler) processOnlineActivation(activation *v1.Activation) (*v1.Activa
 	logrus.Info(metaData)
 	logrus.Info(product)
 
-	status, statusErr := sccConnection.StatusPing(h.systemInfo)
-	if statusErr != nil {
-		return activation, statusErr
+	// If no error, then system is still registered with valid activation status...
+	keepAliveErr := sccConnection.KeepAlive()
+	if keepAliveErr != nil {
+		return activation, keepAliveErr
 	}
 
-	if status == sccRegistration.Registered {
-		now := time.Now()
-		logrus.Info("[scc.activation-controller]: Successfully registered activation")
-		updated := activation.DeepCopy()
-		updated.Status.LastValidatedTS = now.UTC().Format(time.RFC3339)
-		updated.Status.ValidUntilTS = now.Add(24 * time.Hour).UTC().Format(time.RFC3339)
-		updated.Status.Valid = true
-		updated.Spec = v1.ActivationSpec{}
-		return h.activations.UpdateStatus(updated)
-	}
-
-	return activation, nil
+	now := time.Now()
+	logrus.Info("[scc.activation-controller]: Successfully registered activation")
+	updated := activation.DeepCopy()
+	updated.Status.LastValidatedTS = now.UTC().Format(time.RFC3339)
+	updated.Status.ValidUntilTS = now.Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	updated.Status.Valid = true
+	updated.Spec = v1.ActivationSpec{}
+	return h.activations.UpdateStatus(updated)
 }
 
 func (h *handler) processOfflineActivation(registration *v1.Activation) (*v1.Activation, error) {

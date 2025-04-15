@@ -1,11 +1,34 @@
 package v1
 
 import (
-	"github.com/rancher/wrangler/v3/pkg/condition"
-	"github.com/rancher/wrangler/v3/pkg/genericcondition"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
+
+	"github.com/SUSE/connect-ng/pkg/registration"
+	"github.com/rancher/wrangler/v3/pkg/condition"
+	"github.com/rancher/wrangler/v3/pkg/genericcondition"
 )
+
+// RegistrationMode enforces the valid registration modes
+// +kubebuilder:validation:Enum=online;offline
+type RegistrationMode string
+
+func (rm *RegistrationMode) Valid() bool {
+	return *rm == Online || *rm == Offline
+}
+
+const (
+	Online  RegistrationMode = "online"
+	Offline RegistrationMode = "offline"
+)
+
+type SubscriptionInfo struct {
+	Name           string                      `yaml:"name"`
+	StartsAt       time.Time                   `yaml:"startsAt" json:"starts_at"`
+	ExpiresAt      time.Time                   `yaml:"expiresAt" json:"expires_at"`
+	ProductClasses []registration.ProductClass `yaml:"productClass" json:"product_classes"`
+}
 
 const (
 	ResourceConditionDone        condition.Cond = "Done"
@@ -15,6 +38,7 @@ const (
 	ResourceConditionSynced      condition.Cond = "Synced"
 
 	RegistrationConditionInvalidProduct condition.Cond = "InvalidProduct"
+	RegistrationConditionSystemUrlReady condition.Cond = "SystemUrlReady"
 )
 
 // +genclient
@@ -40,25 +64,12 @@ type RegistrationSpec struct {
 
 type RegistrationStatus struct {
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
-	SubscriptionInfo           string                              `json:"subscriptionInfo,omitempty"`
+	SubscriptionInfo           SubscriptionInfo                    `json:"subscriptionInfo,omitempty"`
 	SCCSystemId                int                                 `json:"sccSystemId,omitempty"`
 	SystemCredentialsSecretRef *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
 	RequestProcessedTS         string                              `json:"requestProcessedTS,omitempty"`
 	OfflineRegistrationRequest *corev1.SecretReference             `json:"offlineRegistrationRequest,omitempty"`
 }
-
-// RegistrationMode enforces the valid registration modes
-// +kubebuilder:validation:Enum=online;offline
-type RegistrationMode string
-
-func (rm *RegistrationMode) Valid() bool {
-	return *rm == Online || *rm == Offline
-}
-
-const (
-	Online  RegistrationMode = "online"
-	Offline RegistrationMode = "offline"
-)
 
 // +genclient
 // +genclient:nonNamespaced

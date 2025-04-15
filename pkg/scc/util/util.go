@@ -75,33 +75,35 @@ func ActivationFromRegistration(activations registrationControllers.ActivationCo
 	existingActivation, err := activations.Get(request.Name, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return existingActivation, err
+	} else if err != nil && errors.IsNotFound(err) {
+		newStatus := v1.ActivationStatus{
+			Mode: request.Spec.Mode,
+			OriginRegistrationRef: &corev1.LocalObjectReference{
+				Name: request.Name,
+			},
+			RegistrationCodeSecretRef:  request.Spec.RegistrationCodeSecretRef.DeepCopy(),
+			SystemCredentialsSecretRef: request.Status.SystemCredentialsSecretRef.DeepCopy(),
+		}
+		newActivation := &v1.Activation{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: request.Name,
+			},
+			Spec:   v1.ActivationSpec{},
+			Status: newStatus,
+		}
+
+		createdActivation, createErr := activations.Create(newActivation)
+		if createErr != nil {
+			return &v1.Activation{}, createErr
+		}
+
+		updatedActivation := createdActivation.DeepCopy()
+		updatedActivation.Status = newStatus
+
+		return activations.UpdateStatus(updatedActivation)
 	}
 
-	newStatus := v1.ActivationStatus{
-		Mode: request.Spec.Mode,
-		OriginRegistrationRef: &corev1.LocalObjectReference{
-			Name: request.Name,
-		},
-		RegistrationCodeSecretRef:  request.Spec.RegistrationCodeSecretRef.DeepCopy(),
-		SystemCredentialsSecretRef: request.Status.SystemCredentialsSecretRef.DeepCopy(),
-	}
-	newActivation := &v1.Activation{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: request.Name,
-		},
-		Spec:   v1.ActivationSpec{},
-		Status: v1.ActivationStatus{},
-	}
-
-	newActivation, err = activations.Create(newActivation)
-	if err != nil {
-		return &v1.Activation{}, err
-	}
-
-	newActivation = newActivation.DeepCopy()
-	newActivation.Status = newStatus
-
-	return activations.UpdateStatus(newActivation)
+	return existingActivation, nil
 }
 
 func GetProductIdentifier(override string) (string, string, string) {
