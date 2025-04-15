@@ -25,7 +25,7 @@ func (oh *onlineHandler) Run(registrationObj *v1.Registration) (*v1.Registration
 		return registrationObj, errors.New("cannot process registration if `server-url` is not configured")
 	}
 
-	if v1.ResourceConditionDone.IsTrue(registrationObj) && v1.ResourceConditionSynced.IsTrue(registrationObj) {
+	if v1.ResourceConditionDone.IsTrue(registrationObj) && v1.RegistrationConditionAnnounced.IsTrue(registrationObj) {
 		logrus.Debugf("[scc.registration-controller]: registration already complete, nothing to process for %s", registrationObj.Name)
 		return registrationObj, nil
 	}
@@ -83,7 +83,7 @@ func (oh *onlineHandler) Run(registrationObj *v1.Registration) (*v1.Registration
 	}
 
 	completeObj := registrationObj.DeepCopy()
-	completeObj.Status.RequestProcessedTS = time.Now().UTC().Format(time.RFC3339)
+	completeObj.Status.RegistrationStatus.RequestProcessedTS = time.Now().UTC().Format(time.RFC3339)
 	completeObj.Status.Conditions = make([]genericcondition.GenericCondition, 0)
 	v1.ResourceConditionFailure.SetStatusBool(completeObj, false)
 	v1.ResourceConditionReady.SetStatusBool(completeObj, true)
@@ -143,10 +143,10 @@ func (oh *onlineHandler) announceSystem(registrationObj *v1.Registration, sccCon
 	logrus.Debugf("[scc.registration-controller]: system announced, check %s", sccSystemUrl)
 
 	newRegObj := registrationObj.DeepCopy()
-	v1.RegistrationConditionSystemUrlReady.SetStatusBool(newRegObj, true)
+	v1.RegistrationConditionSystemUrlReady.SetStatusBool(newRegObj, false) // This must be false until successful activation too.
 	v1.RegistrationConditionSystemUrlReady.SetMessageIfBlank(newRegObj, fmt.Sprintf("system announced, check %s", sccSystemUrl))
 
-	newRegObj.Status.SCCSystemId = int(id)
+	newRegObj.Status.RegistrationStatus.SCCSystemId = int(id)
 	newRegObj.Status.SystemCredentialsSecretRef = &corev1.SecretReference{
 		Namespace: credentials.Namespace,
 		Name:      credentials.SecretName,

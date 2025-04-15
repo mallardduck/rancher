@@ -89,7 +89,7 @@ func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registra
 	// 4. At the end of either process the current Registration is either:
 	// 		a) fulfilled, b) expired or c) failed (retry?)
 	v1.ResourceConditionDone.SetStatusBool(registrationObj, true)
-	v1.ResourceConditionSynced.SetStatusBool(registrationObj, true)
+	v1.RegistrationConditionAnnounced.SetStatusBool(registrationObj, true)
 	registrationObj, err = h.registrations.UpdateStatus(registrationObj)
 	if err != nil {
 		return h.setReconcilingCondition(registrationObj, err)

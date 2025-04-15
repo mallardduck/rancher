@@ -38,10 +38,10 @@ const (
 	ResourceConditionFailure     condition.Cond = "Failure"
 	ResourceConditionProgressing condition.Cond = "Progressing"
 	ResourceConditionReady       condition.Cond = "Ready"
-	ResourceConditionSynced      condition.Cond = "Synced"
 
-	RegistrationConditionInvalidProduct condition.Cond = "InvalidProduct"
-	RegistrationConditionSystemUrlReady condition.Cond = "SystemUrlReady"
+	RegistrationConditionAnnounced      condition.Cond = "RegistrationAnnounced"
+	RegistrationConditionInvalidProduct condition.Cond = "RegistrationInvalidProduct"
+	RegistrationConditionSystemUrlReady condition.Cond = "RegistrationSystemUrlReady"
 )
 
 // +genclient
@@ -60,45 +60,29 @@ type Registration struct {
 
 type RegistrationSpec struct {
 	// +default:value="online"
-	Mode                             RegistrationMode        `json:"mode"` // Either offline or online
-	RegistrationCodeSecretRef        *corev1.SecretReference `json:"registrationCodeSecretRef,omitempty"`
-	RegistrationCertificateSecretRef *corev1.SecretReference `json:"registrationCertificateSecretRef,omitempty"`
+	Mode                                    RegistrationMode        `json:"mode"` // Either offline or online
+	RegistrationCodeSecretRef               *corev1.SecretReference `json:"registrationCodeSecretRef,omitempty"`
+	OfflineRegistrationCertificateSecretRef *corev1.SecretReference `json:"offlineRegistrationCertificateSecretRef,omitempty"`
+	CheckNow                                bool                    `json:"checkNow,omitempty"` // for forcing Activation re-sync (for online mode) via k8s native methods
 }
 
 type RegistrationStatus struct {
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
 	SubscriptionInfo           SubscriptionInfo                    `json:"subscriptionInfo,omitempty"`
-	SCCSystemId                int                                 `json:"sccSystemId,omitempty"`
+	RegistrationStatus         SystemRegistrationState             `json:"registrationStatus,omitempty"`
+	ActivationStatus           SystemActivationState               `json:"activationStatus,omitempty"`
 	SystemCredentialsSecretRef *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
-	RequestProcessedTS         string                              `json:"requestProcessedTS,omitempty"`
 	OfflineRegistrationRequest *corev1.SecretReference             `json:"offlineRegistrationRequest,omitempty"`
 }
 
-// +genclient
-// +genclient:nonNamespaced
-// +kubebuilder:resource:scope=Cluster
-// +kubebuilder:subresource:status
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type Activation struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              ActivationSpec   `json:"spec,omitempty"`
-	Status            ActivationStatus `json:"status,omitempty"`
+type SystemRegistrationState struct {
+	SCCSystemId        int    `json:"sccSystemId,omitempty"`
+	RequestProcessedTS string `json:"requestProcessedTS,omitempty"`
 }
 
-type ActivationSpec struct {
-	CheckNow bool `json:"checkNow,omitempty"`
-}
-
-type ActivationStatus struct {
-	Mode                       RegistrationMode                    `json:"mode"`
-	OriginRegistrationRef      *corev1.LocalObjectReference        `json:"originRegistration,omitempty"`
-	RegistrationCodeSecretRef  *corev1.SecretReference             `json:"registrationCodeSecretRef,omitempty"`
-	SystemCredentialsSecretRef *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`
-	Valid                      bool                                `json:"valid"`
-	LastValidatedTS            string                              `json:"lastValidatedTS"`
-	ValidUntilTS               string                              `json:"validUntilTS"`
-	Certificate                string                              `json:"certificate,omitempty"`
-	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
+type SystemActivationState struct {
+	Valid           bool   `json:"valid"`
+	LastValidatedTS string `json:"lastValidatedTS"`
+	ValidUntilTS    string `json:"validUntilTS"`
+	Certificate     string `json:"certificate,omitempty"`
 }

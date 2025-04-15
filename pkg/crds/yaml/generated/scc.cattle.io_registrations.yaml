@@ -37,6 +37,8 @@ spec:
             type: object
           spec:
             properties:
+              checkNow:
+                type: boolean
               mode:
                 default: online
                 description: RegistrationMode enforces the valid registration modes
@@ -44,7 +46,7 @@ spec:
                 - online
                 - offline
                 type: string
-              registrationCertificateSecretRef:
+              offlineRegistrationCertificateSecretRef:
                 description: |-
                   SecretReference represents a Secret Reference. It has enough information to retrieve secret
                   in any namespace
@@ -79,6 +81,21 @@ spec:
             type: object
           status:
             properties:
+              activationStatus:
+                properties:
+                  certificate:
+                    type: string
+                  lastValidatedTS:
+                    type: string
+                  valid:
+                    type: boolean
+                  validUntilTS:
+                    type: string
+                required:
+                - lastValidatedTS
+                - valid
+                - validUntilTS
+                type: object
               conditions:
                 items:
                   properties:
@@ -122,10 +139,13 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
-              requestProcessedTS:
-                type: string
-              sccSystemId:
-                type: integer
+              registrationStatus:
+                properties:
+                  requestProcessedTS:
+                    type: string
+                  sccSystemId:
+                    type: integer
+                type: object
               subscriptionInfo:
                 properties:
                   expires_at:

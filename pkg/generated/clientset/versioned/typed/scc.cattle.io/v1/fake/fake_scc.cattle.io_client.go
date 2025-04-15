@@ -28,10 +28,6 @@ type FakeSccV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeSccV1) Activations() v1.ActivationInterface {
-	return newFakeActivations(c)
-}
-
 func (c *FakeSccV1) Registrations() v1.RegistrationInterface {
 	return newFakeRegistrations(c)
 }

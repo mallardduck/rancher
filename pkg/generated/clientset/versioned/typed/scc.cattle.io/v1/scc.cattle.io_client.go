@@ -28,17 +28,12 @@ import (
 
 type SccV1Interface interface {
 	RESTClient() rest.Interface
-	ActivationsGetter
 	RegistrationsGetter
 }
 
 // SccV1Client is used to interact with features provided by the scc.cattle.io group.
 type SccV1Client struct {
 	restClient rest.Interface
-}
-
-func (c *SccV1Client) Activations() ActivationInterface {
-	return newActivations(c)
 }
 
 func (c *SccV1Client) Registrations() RegistrationInterface {

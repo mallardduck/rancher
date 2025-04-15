@@ -31,7 +31,6 @@ func init() {
 }
 
 type Interface interface {
-	Activation() ActivationController
 	Registration() RegistrationController
 }
 
@@ -43,10 +42,6 @@ func New(controllerFactory controller.SharedControllerFactory) Interface {
 
 type version struct {
 	controllerFactory controller.SharedControllerFactory
-}
-
-func (v *version) Activation() ActivationController {
-	return generic.NewNonNamespacedController[*v1.Activation, *v1.ActivationList](schema.GroupVersionKind{Group: "scc.cattle.io", Version: "v1", Kind: "Activation"}, "activations", v.controllerFactory)
 }
 
 func (v *version) Registration() RegistrationController {
