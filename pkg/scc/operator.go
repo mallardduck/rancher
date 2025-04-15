@@ -64,15 +64,19 @@ func setup(wContext *wrangler.Context) (*sccOperator, error) {
 }
 
 func (so *sccOperator) waitForServerURL(ctx context.Context) {
+	if so.systemInformation.ServerUrl() != "" {
+		close(so.serverUrlReady)
+		return
+	}
 	logrus.Info("[scc-operator] Waiting for server-url to be ready")
-	wait.UntilWithContext(ctx, func(c context.Context) {
+	wait.Until(func() {
 		if so.systemInformation.ServerUrl() != "" {
-			logrus.Info("[scc-operator] Server URL is now ready.")
+			logrus.Info("[scc-operator] can now start controllers; server URL is now ready.")
 			close(so.serverUrlReady)
 		} else {
-			logrus.Info("[scc-operator] Server URL is not ready yet.")
+			logrus.Info("[scc-operator] cannot start controllers yet; server URL is not ready.")
 		}
-	}, 15*time.Second)
+	}, 15*time.Second, so.serverUrlReady)
 }
 
 // maybeFirstInit will check if the initial `Registration` seeding values exist
@@ -138,36 +142,41 @@ func Setup(
 
 	// Start goroutine to wait for Server URL to be configured
 	go func() {
-		logrus.Info("[scc-operator] Waiting for Server URL to be configured and ready")
+		if initOperator.serverUrlReady != nil {
+			logrus.Info("[scc-operator] Waiting to run first init after server-url is ready")
+		}
 		<-initOperator.serverUrlReady
-		logrus.Info("[scc-operator] Server URL is now ready.")
+
 		_, err = initOperator.maybeFirstInit()
 		if err != nil {
 			logrus.Errorf("error creating first-start `Registration`: %s", err.Error())
 		}
 
-		logrus.Debug("[scc-operator] Setting up controllers")
-		registration.Register(
-			ctx,
-			initOperator.registrations,
-			initOperator.activations,
-			initOperator.configMaps,
-			initOperator.secrets,
-			initOperator.systemInformation,
-		)
-		activation.Register(
-			ctx,
-			initOperator.activations,
-			initOperator.secrets,
-			initOperator.systemInformation,
-		)
+		return
 	}()
 
 	go initOperator.waitForServerURL(ctx)
 
-	// TODO: Somewhere in operator, or in registration controller, the current Registration needs to be revalidated every 24 hours
+	registration.Register(
+		ctx,
+		initOperator.registrations,
+		initOperator.activations,
+		initOperator.configMaps,
+		initOperator.secrets,
+		initOperator.systemInformation,
+	)
+	activation.Register(
+		ctx,
+		initOperator.activations,
+		initOperator.secrets,
+		initOperator.systemInformation,
+	)
 
-	logrus.Info("[scc-operator] Initial setup initiated. When Server URL is configured full setup will complete.")
+	// TODO: Somewhere in operator, or in registration controller, the current Activation needs to be revalidated every 24 hours
+
+	if initOperator.serverUrlReady != nil {
+		logrus.Info("[scc-operator] Initial setup initiated. When Server URL is configured full setup will complete.")
+	}
 
 	return nil
 }

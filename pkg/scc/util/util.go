@@ -90,7 +90,7 @@ func ActivationFromRegistration(activations registrationControllers.ActivationCo
 			Name: request.Name,
 		},
 		Spec:   v1.ActivationSpec{},
-		Status: newStatus,
+		Status: v1.ActivationStatus{},
 	}
 
 	newActivation, err = activations.Create(newActivation)
