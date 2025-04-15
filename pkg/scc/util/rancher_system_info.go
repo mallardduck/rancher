@@ -2,21 +2,35 @@ package util
 
 import (
 	"encoding/json"
-	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/google/uuid"
-	"github.com/rancher/rancher/pkg/settings"
+	"github.com/rancher/rancher/pkg/wrangler"
 	"net/url"
+
+	"github.com/SUSE/connect-ng/pkg/registration"
+	"github.com/rancher/rancher/pkg/settings"
+	coreVersion "github.com/rancher/rancher/pkg/version"
 )
 
 type RancherSystemInfo struct {
 	RancherUuid uuid.UUID
 	ClusterUuid uuid.UUID
 	Version     string
-	// TODO: these count based items may make more sense as getters on `RancherSystemInfo`
-	Nodes    int
-	Sockets  int
-	Vcpus    int
-	Clusters int
+	wContext    *wrangler.Context
+}
+
+func NewRancherSystemInfo(rancherUuid uuid.UUID, clusterUuid uuid.UUID, wcontext *wrangler.Context) *RancherSystemInfo {
+	var version string
+	version = coreVersion.Version
+	if version == "dev" {
+		// TODO: maybe SCC devs can give us a static dev version?
+		version = "2.10.3"
+	}
+	return &RancherSystemInfo{
+		RancherUuid: rancherUuid,
+		ClusterUuid: clusterUuid,
+		Version:     version,
+		wContext:    wcontext,
+	}
 }
 
 func (rsi *RancherSystemInfo) ServerUrl() string {
@@ -39,15 +53,17 @@ func (rsi *RancherSystemInfo) preparedForSCC() ([]byte, error) {
 		Version  string    `json:"version"`
 	}
 
+	// Fetch current node count
+	clusterCount := rsi.wContext.Mgmt.Cluster().List()
+
 	sccInfo := &RancherSCCInfo{
-		UUID:    rsi.RancherUuid,
-		Url:     rsi.ServerUrl(),
-		Version: "2.10.3",
-		//Version:  rsi.Version,
-		Nodes:    rsi.Nodes,
-		Sockets:  rsi.Sockets,
-		Vcpus:    rsi.Vcpus,
-		Clusters: rsi.Clusters,
+		UUID:     rsi.RancherUuid,
+		Url:      rsi.ServerUrl(),
+		Version:  rsi.Version,
+		Nodes:    1,
+		Sockets:  1,
+		Vcpus:    1,
+		Clusters: 0,
 	}
 
 	return json.Marshal(sccInfo)
