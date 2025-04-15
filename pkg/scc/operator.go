@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rancher/rancher/pkg/scc/util"
 	"github.com/rancher/rancher/pkg/settings"
-	"github.com/rancher/rancher/pkg/version"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -54,11 +53,11 @@ func setup(wContext *wrangler.Context) (*sccOperator, error) {
 		activations:   wContext.SCC.Activation(),
 		configMaps:    wContext.Core.ConfigMap(),
 		secrets:       wContext.Core.Secret(),
-		systemInformation: &util.RancherSystemInfo{
-			RancherUuid: uuid.MustParse(rancherUuid),
-			ClusterUuid: uuid.MustParse(string(kubeSystemNS.UID)),
-			Version:     version.Version,
-		},
+		systemInformation: util.NewRancherSystemInfo(
+			uuid.MustParse(rancherUuid),
+			uuid.MustParse(string(kubeSystemNS.UID)),
+			wContext,
+		),
 		serverUrlReady: make(chan struct{}),
 	}, nil
 }
