@@ -54,11 +54,11 @@ func (c *SccCredentials) CredentialsType() CredentialType {
 // HasAuthentication Returns true if we can authenticate at all, false otherwise.
 func (c *SccCredentials) HasAuthentication() bool {
 	configuredType := c.CredentialsType()
-	if configuredType != CredentialTypeUnconfigured {
-		return true
+	if configuredType == CredentialTypeUnconfigured {
+		return false
 	}
 
-	return false
+	return configuredType == CredentialTypeBoth
 }
 
 // Token returns the current system used to detect duplicated systems. This
