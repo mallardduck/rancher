@@ -3,9 +3,7 @@ package v1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 
-	"github.com/SUSE/connect-ng/pkg/registration"
 	"github.com/rancher/wrangler/v3/pkg/condition"
 	"github.com/rancher/wrangler/v3/pkg/genericcondition"
 )
@@ -23,11 +21,16 @@ const (
 	Offline RegistrationMode = "offline"
 )
 
+type ProductClass struct {
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
 type SubscriptionInfo struct {
-	Name           string                      `yaml:"name"`
-	StartsAt       time.Time                   `yaml:"startsAt" json:"starts_at"`
-	ExpiresAt      time.Time                   `yaml:"expiresAt" json:"expires_at"`
-	ProductClasses []registration.ProductClass `yaml:"productClass" json:"product_classes"`
+	Name           string         `yaml:"name,omitempty" json:"name,omitempty"`
+	StartsAt       metav1.Time    `yaml:"startsAt,omitempty" json:"starts_at,omitempty"`
+	ExpiresAt      metav1.Time    `yaml:"expiresAt,omitempty" json:"expires_at,omitempty"`
+	ProductClasses []ProductClass `yaml:"productClass,omitempty" json:"product_classes,omitempty"`
 }
 
 const (

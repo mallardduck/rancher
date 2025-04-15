@@ -2,15 +2,16 @@ package util
 
 import (
 	"fmt"
-	"github.com/SUSE/connect-ng/pkg/registration"
-	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
-	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
-	"github.com/rancher/rancher/pkg/version"
+	"strings"
+
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
+
+	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
+	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
+	"github.com/rancher/rancher/pkg/version"
 )
 
 const (
@@ -114,7 +115,7 @@ func GetProductIdentifier(override string) (string, string, string) {
 	return "rancher", version.Version, "unknown"
 }
 
-func ValidateRancherProductClass(productClasses []registration.ProductClass) bool {
+func ValidateRancherProductClass(productClasses []v1.ProductClass) bool {
 	for _, productClass := range productClasses {
 		if strings.HasPrefix(productClass.Name, "RANCHER-") {
 			return true

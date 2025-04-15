@@ -118,7 +118,9 @@ func (oh *onlineHandler) verifyBasicSubscription(registrationObj *v1.Registratio
 	}
 
 	now := time.Now()
-	if now.Before(newRegRequest.Status.SubscriptionInfo.StartsAt) || now.After(newRegRequest.Status.SubscriptionInfo.ExpiresAt) {
+	startsAt := newRegRequest.Status.SubscriptionInfo.StartsAt.Time
+	expiresAt := newRegRequest.Status.SubscriptionInfo.ExpiresAt.Time
+	if now.Before(startsAt) || now.After(expiresAt) {
 		return registrationObj, errors.New(fmt.Sprintf("subscription info is out of date"))
 	}
 
