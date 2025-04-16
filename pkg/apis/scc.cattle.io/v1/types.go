@@ -39,9 +39,13 @@ const (
 	ResourceConditionProgressing condition.Cond = "Progressing"
 	ResourceConditionReady       condition.Cond = "Ready"
 
+	RegistrationConditionOfflineRequestReady     condition.Cond = "OfflineRequestReady"
+	RegistrationConditionOfflineCertificateReady condition.Cond = "OfflineCertificateReady"
+	ActivationConditionOfflineDone               condition.Cond = "OfflineActivationDone"
+
 	RegistrationConditionAnnounced      condition.Cond = "RegistrationAnnounced"
 	RegistrationConditionInvalidProduct condition.Cond = "RegistrationInvalidProduct"
-	RegistrationConditionSystemUrlReady condition.Cond = "RegistrationSystemUrlReady"
+	RegistrationConditionSccUrlReady    condition.Cond = "RegistrationSccUrlReady"
 )
 
 // +genclient
@@ -64,6 +68,14 @@ type RegistrationSpec struct {
 	RegistrationCodeSecretRef               *corev1.SecretReference `json:"registrationCodeSecretRef,omitempty"`
 	OfflineRegistrationCertificateSecretRef *corev1.SecretReference `json:"offlineRegistrationCertificateSecretRef,omitempty"`
 	CheckNow                                bool                    `json:"checkNow,omitempty"` // for forcing Activation re-sync (for online mode) via k8s native methods
+}
+
+func (rs *RegistrationSpec) WithoutCheckNow() *RegistrationSpec {
+	return &RegistrationSpec{
+		Mode:                                    rs.Mode,
+		RegistrationCodeSecretRef:               rs.RegistrationCodeSecretRef,
+		OfflineRegistrationCertificateSecretRef: rs.OfflineRegistrationCertificateSecretRef,
+	}
 }
 
 type RegistrationStatus struct {

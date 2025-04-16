@@ -1,17 +1,14 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
+	"github.com/rancher/rancher/pkg/version"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
-	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
-	"github.com/rancher/rancher/pkg/version"
 )
 
 const (
@@ -35,7 +32,7 @@ func ValidateInitializingConfigMap(sccInitializerConfig *corev1.ConfigMap) (*cor
 	if !mode.Valid() {
 		errorMsg := fmt.Sprintf("the configmap does not have a valid mode set")
 		logrus.Error(errorMsg)
-		return secretReference, nil, fmt.Errorf(errorMsg)
+		return secretReference, nil, errors.New(errorMsg)
 	}
 
 	credentialNameKey := ""
@@ -54,7 +51,7 @@ func ValidateInitializingConfigMap(sccInitializerConfig *corev1.ConfigMap) (*cor
 		// Just unclear if we should: a) error, or b) silent error (letting `SCCFirstStart` get updated).
 		errorMsg := fmt.Sprintf("cannot find the credential value key %s", credentialNameKey)
 		logrus.Error(errorMsg)
-		return secretReference, nil, fmt.Errorf(errorMsg)
+		return secretReference, nil, errors.New(errorMsg)
 	}
 
 	secretNamespace, credOk := sccInitializerConfig.Data[credentialNamespaceKey]
@@ -70,41 +67,6 @@ func ValidateInitializingConfigMap(sccInitializerConfig *corev1.ConfigMap) (*cor
 	secretReference.Namespace = secretNamespace
 
 	return secretReference, &mode, nil
-}
-
-func ActivationFromRegistration(activations registrationControllers.ActivationController, request *v1.Registration) (*v1.Activation, error) {
-	existingActivation, err := activations.Get(request.Name, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return existingActivation, err
-	} else if err != nil && errors.IsNotFound(err) {
-		newStatus := v1.ActivationStatus{
-			Mode: request.Spec.Mode,
-			OriginRegistrationRef: &corev1.LocalObjectReference{
-				Name: request.Name,
-			},
-			RegistrationCodeSecretRef:  request.Spec.RegistrationCodeSecretRef.DeepCopy(),
-			SystemCredentialsSecretRef: request.Status.SystemCredentialsSecretRef.DeepCopy(),
-		}
-		newActivation := &v1.Activation{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: request.Name,
-			},
-			Spec:   v1.ActivationSpec{},
-			Status: newStatus,
-		}
-
-		createdActivation, createErr := activations.Create(newActivation)
-		if createErr != nil {
-			return &v1.Activation{}, createErr
-		}
-
-		updatedActivation := createdActivation.DeepCopy()
-		updatedActivation.Status = newStatus
-
-		return activations.UpdateStatus(updatedActivation)
-	}
-
-	return existingActivation, nil
 }
 
 func GetProductIdentifier(override string) (string, string, string) {

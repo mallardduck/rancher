@@ -25,7 +25,6 @@ import (
 
 type sccOperator struct {
 	registrations     sccv1.RegistrationController
-	activations       sccv1.ActivationController
 	configMaps        v1core.ConfigMapController
 	secrets           v1core.SecretController
 	systemInformation *util.RancherSystemInfo
@@ -50,7 +49,6 @@ func setup(wContext *wrangler.Context) (*sccOperator, error) {
 	// TODO: also get Node, Sockets, v-cpus, Clusters and watch those
 	return &sccOperator{
 		registrations: wContext.SCC.Registration(),
-		activations:   wContext.SCC.Activation(),
 		configMaps:    wContext.Core.ConfigMap(),
 		secrets:       wContext.Core.Secret(),
 		systemInformation: util.NewRancherSystemInfo(
@@ -104,9 +102,7 @@ func (so *sccOperator) maybeFirstInit() (*v1.Registration, error) {
 				},
 			}
 			newRegistration.Spec.Mode = *mode
-			if *mode == v1.Offline {
-				newRegistration.Spec.RegistrationCertificateSecretRef = secretRef
-			} else {
+			if *mode == v1.Online {
 				newRegistration.Spec.RegistrationCodeSecretRef = secretRef
 			}
 
@@ -159,14 +155,12 @@ func Setup(
 	registration.Register(
 		ctx,
 		initOperator.registrations,
-		initOperator.activations,
-		initOperator.configMaps,
 		initOperator.secrets,
 		initOperator.systemInformation,
 	)
 	activation.Register(
 		ctx,
-		initOperator.activations,
+		initOperator.registrations,
 		initOperator.secrets,
 		initOperator.systemInformation,
 	)

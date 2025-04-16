@@ -17,8 +17,6 @@ import (
 type handler struct {
 	ctx            context.Context
 	registrations  registrationControllers.RegistrationController
-	activations    registrationControllers.ActivationController
-	configMaps     v1core.ConfigMapController
 	secrets        v1core.SecretController
 	sccCredentials *credentials.CredentialSecretsAdapter
 	systemInfo     *util.RancherSystemInfo
@@ -27,16 +25,12 @@ type handler struct {
 func Register(
 	ctx context.Context,
 	registrations registrationControllers.RegistrationController,
-	activations registrationControllers.ActivationController,
-	configMaps v1core.ConfigMapController,
 	secrets v1core.SecretController,
 	systemInfo *util.RancherSystemInfo,
 ) {
 	controller := &handler{
 		ctx:            ctx,
 		registrations:  registrations,
-		activations:    activations,
-		configMaps:     configMaps,
 		secrets:        secrets,
 		sccCredentials: credentials.New(secrets),
 		systemInfo:     systemInfo,
@@ -55,7 +49,7 @@ func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registra
 	// 1. Verify Registration is not already fulfilled or expired,
 	// TODO: implement expiration - gist: Registration shouldn't repeat to infinity when issues.
 	// Ideally we would eventually timeout a Registration after it fails X times or for X minutes
-	if registrationObj.Status.RequestProcessedTS != "" {
+	if registrationObj.Status.RegistrationStatus.RequestProcessedTS != "" {
 		logrus.Info("[scc.registration-controller]: Registration already processed")
 		return registrationObj, nil
 	}
@@ -88,11 +82,10 @@ func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registra
 
 	// 4. At the end of either process the current Registration is either:
 	// 		a) fulfilled, b) expired or c) failed (retry?)
-	v1.ResourceConditionDone.SetStatusBool(registrationObj, true)
-	v1.RegistrationConditionAnnounced.SetStatusBool(registrationObj, true)
-	registrationObj, err = h.registrations.UpdateStatus(registrationObj)
-	if err != nil {
-		return h.setReconcilingCondition(registrationObj, err)
+	// TODO: do we need to do anything here if expired/failed?
+
+	if registrationObj.Status.RegistrationStatus.RequestProcessedTS != "" {
+		h.registrations.Enqueue(registrationObj.Name)
 	}
 
 	// 4+. If it was a success, then a new Registration is created (and the old one deleted or marked as not current?)
