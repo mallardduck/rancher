@@ -47,10 +47,10 @@ func (oh *onlineHandler) Run(registrationObj *v1.Registration) (*v1.Registration
 		Namespace: "cattle-system",
 		Name:      util.RegCodeSecretName,
 	}
-	if registrationObj.Spec.RegistrationCodeSecretRef != nil {
-		regObjRegCodeSecretRef := registrationObj.Spec.RegistrationCodeSecretRef
+	if registrationObj.Spec.RegistrationRequest.RegistrationCodeSecretRef != nil {
+		regObjRegCodeSecretRef := registrationObj.Spec.RegistrationRequest.RegistrationCodeSecretRef
 		if regObjRegCodeSecretRef.Name != "" && regObjRegCodeSecretRef.Namespace != "" {
-			regCodeSecretRef = registrationObj.Spec.RegistrationCodeSecretRef
+			regCodeSecretRef = registrationObj.Spec.RegistrationRequest.RegistrationCodeSecretRef
 		} else {
 			logrus.Warn("[scc.registration-controller]: registration code secret reference was set but cannot be used")
 		}

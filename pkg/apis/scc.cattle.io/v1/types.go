@@ -31,8 +31,8 @@ const (
 	RegistrationConditionOfflineCertificateReady condition.Cond = "OfflineCertificateReady"
 	ActivationConditionOfflineDone               condition.Cond = "OfflineActivationDone"
 
-	RegistrationConditionAnnounced      condition.Cond = "RegistrationAnnounced"
-	RegistrationConditionSccUrlReady    condition.Cond = "RegistrationSccUrlReady"
+	RegistrationConditionAnnounced   condition.Cond = "RegistrationAnnounced"
+	RegistrationConditionSccUrlReady condition.Cond = "RegistrationSccUrlReady"
 )
 
 // +genclient
@@ -49,25 +49,31 @@ type Registration struct {
 	Status RegistrationStatus `json:"status,omitempty"`
 }
 
+type RegistrationRequest struct {
+	RegistrationCodeSecretRef *corev1.SecretReference `yaml:"registrationCodeSecretRef,omitempty" json:"registrationCodeSecretRef,omitempty"`
+	SeverUrl                  string                  `yaml:"severUrl,omitempty" json:"sever_url,omitempty"`
+	ServerCertificate         *corev1.SecretReference `yaml:"serverCertficate,omitempty" json:"server_certficate,omitempty"`
+}
+
 type RegistrationSpec struct {
 	// +default:value="online"
-	Mode                                    RegistrationMode        `json:"mode"` // Either offline or online
-	RegistrationCodeSecretRef               *corev1.SecretReference `json:"registrationCodeSecretRef,omitempty"`
-	OfflineRegistrationCertificateSecretRef *corev1.SecretReference `json:"offlineRegistrationCertificateSecretRef,omitempty"`
-	CheckNow                                bool                    `json:"checkNow,omitempty"` // for forcing Activation re-sync (for online mode) via k8s native methods
+	Mode RegistrationMode `yaml:"mode" json:"mode"`
+	// +optional
+	RegistrationRequest                     *RegistrationRequest    `yaml:"registrationRequest,omitempty" json:"registrationRequest,omitempty"`
+	OfflineRegistrationCertificateSecretRef *corev1.SecretReference `yaml:"offlineRegistrationCertificateSecretRef,omitempty" json:"offlineRegistrationCertificateSecretRef,omitempty"`
+	CheckNow                                bool                    `yaml:"checkNow,omitempty" json:"checkNow,omitempty"`
 }
 
 func (rs *RegistrationSpec) WithoutCheckNow() *RegistrationSpec {
 	return &RegistrationSpec{
 		Mode:                                    rs.Mode,
-		RegistrationCodeSecretRef:               rs.RegistrationCodeSecretRef,
+		RegistrationRequest:                     rs.RegistrationRequest,
 		OfflineRegistrationCertificateSecretRef: rs.OfflineRegistrationCertificateSecretRef,
 	}
 }
 
 type RegistrationStatus struct {
 	Conditions                 []genericcondition.GenericCondition `json:"conditions,omitempty"`
-	SubscriptionInfo           SubscriptionInfo                    `json:"subscriptionInfo,omitempty"`
 	RegistrationStatus         SystemRegistrationState             `json:"registrationStatus,omitempty"`
 	ActivationStatus           SystemActivationState               `json:"activationStatus,omitempty"`
 	SystemCredentialsSecretRef *corev1.SecretReference             `json:"systemCredentialsSecretRef,omitempty"`

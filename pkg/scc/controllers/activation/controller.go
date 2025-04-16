@@ -120,7 +120,7 @@ func (h *handler) setReconcilingCondition(registrationObj *v1.Registration, orig
 
 func (h *handler) processOnlineActivation(registrationObj *v1.Registration) (*v1.Registration, error) {
 	_ = h.sccCredentials.Refresh()
-	regCode := suseconnect.FetchSccRegistrationCodeFrom(h.secrets, registrationObj.Spec.RegistrationCodeSecretRef)
+	regCode := suseconnect.FetchSccRegistrationCodeFrom(h.secrets, registrationObj.Spec.RegistrationRequest.RegistrationCodeSecretRef)
 	sccConnection := suseconnect.DefaultRancherConnection(h.sccCredentials.SccCredentials(), h.systemInfo)
 
 	// TODO: remove override value - it's really just for testing

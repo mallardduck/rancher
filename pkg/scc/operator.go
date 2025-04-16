@@ -100,10 +100,13 @@ func (so *sccOperator) maybeFirstInit() (*v1.Registration, error) {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "rancher-",
 				},
+				Spec: v1.RegistrationSpec{
+					RegistrationRequest: &v1.RegistrationRequest{},
+				},
 			}
 			newRegistration.Spec.Mode = *mode
 			if *mode == v1.Online {
-				newRegistration.Spec.RegistrationCodeSecretRef = secretRef
+				newRegistration.Spec.RegistrationRequest.RegistrationCodeSecretRef = secretRef
 			}
 
 			_, err = so.registrations.Create(newRegistration)

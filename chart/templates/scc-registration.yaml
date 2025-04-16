@@ -38,15 +38,21 @@ metadata:
   name: rancher-chart-{{ .Release.Name }}-{{ .Release.Revision }}
 spec:
   mode: {{ include "registration.mode" . | quote }}
-  {{- if or .Values.registration.regCode .Values.registration.regCodeRef }}
-  registrationCodeSecretRef:
-    name: "{{ .Values.registration.regCodeRef | default "rancher-scc-registration-code" }}"
-    namespace: "cattle-system"
-  {{- end }}
+  registrationRequest:
+    {{- if .Values.registration.regCode }}
+    registrationCodeSecretRef:
+      name: "rancher-scc-registration-code"
+      namespace: "cattle-system"
+    {{- end }}
+    {{- if .Values.registration.regCodeRef }}
+    registrationCodeSecretRef:
+      name: "{{ .Values.registration.regCodeRef.secretName | default "rancher-scc-registration-code" }}"
+      namespace: {{ .Values.registration.regCodeRef.secretNamespace | default .Release.Namespace }}
+    {{- end }}
   {{- if or .Values.registration.certificate .Values.registration.certificateRef }}
   registrationCertificateSecretRef:
-    name: "{{ .Values.registration.certificateRef | default "rancher-scc-registration-certificate" }}"
-    namespace: "cattle-system"
+    name: "{{ .Values.registration.certificateRef.secretName | default "rancher-scc-registration-certificate" }}"
+    namespace: {{ .Values.registration.regCodeRef.secretNamespace | default .Release.Namespace }}
   {{- end }}
 {{- else }}
 ---
