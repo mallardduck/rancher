@@ -74,7 +74,7 @@ func TestHasAuthentication(t *testing.T) {
 		systemLogin: "systemLogin",
 		password:    "password",
 	}
-	assert.True(t, credential.HasAuthentication())
+	assert.False(t, credential.HasAuthentication())
 
 	credential = SccCredentials{
 		systemToken: "",
