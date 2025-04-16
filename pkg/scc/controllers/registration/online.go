@@ -79,38 +79,6 @@ func (oh *onlineHandler) Run(registrationObj *v1.Registration) (*v1.Registration
 	return completeObj, nil
 }
 
-func (oh *onlineHandler) verifyBasicSubscription(registrationObj *v1.Registration, sccConnection *suseconnect.SccWrapper, regCode string) (*v1.Registration, error) {
-	subscriptionInfoResponse, err := sccConnection.SubscriptionInfo(regCode)
-	if err != nil {
-		return registrationObj, err
-	}
-
-	newRegRequest := registrationObj.DeepCopy()
-	newRegRequest.Status.SubscriptionInfo = subscriptionInfoResponse
-
-	if !util.ValidateRancherProductClass(subscriptionInfoResponse.ProductClasses) {
-		regError := errors.New("the provided Registration Code doesn't match Rancher product class")
-		v1.RegistrationConditionInvalidProduct.SetStatusBool(newRegRequest, true)
-		v1.RegistrationConditionInvalidProduct.SetError(newRegRequest, "", regError)
-
-		var newErr error
-		newRegRequest, newErr = oh.rootHandler.registrations.UpdateStatus(newRegRequest)
-		if newErr != nil {
-			return registrationObj, errors.Wrap(newErr, regError.Error())
-		}
-		return newRegRequest, nil
-	}
-
-	now := time.Now()
-	startsAt := newRegRequest.Status.SubscriptionInfo.StartsAt.Time
-	expiresAt := newRegRequest.Status.SubscriptionInfo.ExpiresAt.Time
-	if now.Before(startsAt) || now.After(expiresAt) {
-		return registrationObj, errors.New(fmt.Sprintf("subscription info is out of date"))
-	}
-
-	return oh.rootHandler.registrations.UpdateStatus(newRegRequest)
-}
-
 func (oh *onlineHandler) announceSystem(registrationObj *v1.Registration, sccConnection *suseconnect.SccWrapper, regCodeSecretRef *corev1.SecretReference) (*v1.Registration, error) {
 	// Fetch the SCC registration code; for 80% of users this should be a real code
 	// The other cases are either:

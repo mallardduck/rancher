@@ -2,9 +2,6 @@ package suseconnect
 
 import (
 	"fmt"
-	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
-	"k8s.io/apimachinery/pkg/util/json"
-
 	"github.com/pkg/errors"
 
 	"github.com/SUSE/connect-ng/pkg/connection"
@@ -44,29 +41,6 @@ func DefaultRancherConnection(credentials connection.Credentials, systemInfo *ut
 		registered:  registered,
 		systemInfo:  systemInfo,
 	}
-}
-
-func (sw *SccWrapper) SubscriptionInfo(regCode string) (v1.SubscriptionInfo, error) {
-	var subinfoResponse v1.SubscriptionInfo
-	var err error
-	request, err := sw.conn.BuildRequest("GET", "/connect/subscriptions/info", nil)
-	if err != nil {
-		return v1.SubscriptionInfo{}, err
-	}
-
-	connection.AddRegcodeAuth(request, regCode)
-
-	responseBytes, reqErr := sw.conn.Do(request)
-	if reqErr != nil {
-		return v1.SubscriptionInfo{}, reqErr
-	}
-
-	jsonErr := json.Unmarshal(responseBytes, &subinfoResponse)
-	if jsonErr != nil {
-		return v1.SubscriptionInfo{}, jsonErr
-	}
-
-	return subinfoResponse, nil
 }
 
 type RegistrationSystemId int

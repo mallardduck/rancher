@@ -146,26 +146,6 @@ spec:
                   sccSystemId:
                     type: integer
                 type: object
-              subscriptionInfo:
-                properties:
-                  expires_at:
-                    format: date-time
-                    type: string
-                  name:
-                    type: string
-                  product_classes:
-                    items:
-                      properties:
-                        description:
-                          type: string
-                        name:
-                          type: string
-                      type: object
-                    type: array
-                  starts_at:
-                    format: date-time
-                    type: string
-                type: object
               systemCredentialsSecretRef:
                 description: |-
                   SecretReference represents a Secret Reference. It has enough information to retrieve secret

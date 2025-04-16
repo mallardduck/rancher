@@ -21,18 +21,6 @@ const (
 	Offline RegistrationMode = "offline"
 )
 
-type ProductClass struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-}
-
-type SubscriptionInfo struct {
-	Name           string         `yaml:"name,omitempty" json:"name,omitempty"`
-	StartsAt       metav1.Time    `yaml:"startsAt,omitempty" json:"starts_at,omitempty"`
-	ExpiresAt      metav1.Time    `yaml:"expiresAt,omitempty" json:"expires_at,omitempty"`
-	ProductClasses []ProductClass `yaml:"productClass,omitempty" json:"product_classes,omitempty"`
-}
-
 const (
 	ResourceConditionDone        condition.Cond = "Done"
 	ResourceConditionFailure     condition.Cond = "Failure"
@@ -44,7 +32,6 @@ const (
 	ActivationConditionOfflineDone               condition.Cond = "OfflineActivationDone"
 
 	RegistrationConditionAnnounced      condition.Cond = "RegistrationAnnounced"
-	RegistrationConditionInvalidProduct condition.Cond = "RegistrationInvalidProduct"
 	RegistrationConditionSccUrlReady    condition.Cond = "RegistrationSccUrlReady"
 )
 

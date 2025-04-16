@@ -3,8 +3,6 @@ package util
 import (
 	"errors"
 	"fmt"
-	"strings"
-
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/version"
 	"github.com/sirupsen/logrus"
@@ -75,14 +73,4 @@ func GetProductIdentifier(override string) (string, string, string) {
 	}
 
 	return "rancher", version.Version, "unknown"
-}
-
-func ValidateRancherProductClass(productClasses []v1.ProductClass) bool {
-	for _, productClass := range productClasses {
-		if strings.HasPrefix(productClass.Name, "RANCHER-") {
-			return true
-		}
-	}
-
-	return false
 }
