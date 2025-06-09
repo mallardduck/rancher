@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"time"
+
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
@@ -89,6 +91,7 @@ func Register(
 	secrets.OnChange(ctx, controllerID, controller.OnSecretChange)
 	secrets.OnRemove(ctx, controllerID, controller.OnSecretRemove)
 
+	registrations.OnRemove(ctx, controllerID+"remove", controller.OnRegistrationRemove)
 	relatedresource.Watch(ctx, controllerID+"-secrets",
 		relatedresource.
 			OwnerResolver(true, v1.SchemeGroupVersion.String(), v1.RegistrationResourceName),
