@@ -104,6 +104,11 @@ func Register(
 	secrets.OnRemove(ctx, controllerID, controller.OnSecretRemove)
 
 	registrations.OnRemove(ctx, controllerID+"remove", controller.OnRegistrationRemove)
+
+	// TODO : might want a resolver as well
+	secrets.OnChange(ctx, controllerID, controller.OnSecretChange)
+	secrets.OnRemove(ctx, controllerID, controller.OnSecretRemove)
+
 	relatedresource.Watch(ctx, controllerID+"-secrets",
 		relatedresource.
 			OwnerResolver(true, v1.SchemeGroupVersion.String(), v1.RegistrationResourceName),
