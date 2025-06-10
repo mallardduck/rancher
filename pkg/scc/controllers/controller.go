@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	registrationControllers "github.com/rancher/rancher/pkg/generated/controllers/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
@@ -16,13 +18,16 @@ import (
 	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 	"github.com/rancher/wrangler/v3/pkg/relatedresource"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
-	"time"
 )
 
 const (
+	sccNamespace            = "cattle-scc-system"
+	sccEntrypointSecretName = "scc-registration"
+
 	controllerID    = "prime-registration"
 	prodBaseCheckin = time.Hour * 20
 	prodMinCheckin  = prodBaseCheckin - (3 * time.Hour)
@@ -65,9 +70,9 @@ func Register(
 ) {
 	controller := &handler{
 		apply: wApply.
-			WithCacheTypes(registrations).
-			WithSetID(controllerID).
-			WithSetOwnerReference(true, false),
+			WithCacheTypes(registrations, secrets),
+		// WithSetID(controllerID).
+		// WithSetOwnerReference(true, false),
 		log:                log.NewControllerLogger("registration-controller"),
 		ctx:                ctx,
 		registrations:      registrations,
@@ -79,6 +84,11 @@ func Register(
 
 	registrations.OnChange(ctx, controllerID, controller.OnRegistrationChange)
 	registrations.OnRemove(ctx, controllerID, controller.OnRegistrationRemove)
+
+	// TODO : might want a resolver as well
+	secrets.OnChange(ctx, controllerID, controller.OnSecretChange)
+	secrets.OnRemove(ctx, controllerID, controller.OnSecretRemove)
+
 	relatedresource.Watch(ctx, controllerID+"-secrets",
 		relatedresource.
 			OwnerResolver(true, v1.SchemeGroupVersion.String(), v1.RegistrationResourceName),
@@ -164,6 +174,62 @@ func minResyncInterval() time.Time {
 		return now.Add(-devMinCheckin)
 	}
 	return now.Add(-prodMinCheckin)
+}
+
+func isEntrypointSecret(secretObj *corev1.Secret) bool {
+	if secretObj.Name != sccEntrypointSecretName || secretObj.Namespace != sccNamespace {
+		return false
+	}
+	return true
+}
+
+func (h *handler) OnSecretChange(name string, secretObj *corev1.Secret) (*corev1.Secret, error) {
+	if secretObj == nil || secretObj.DeletionTimestamp != nil {
+		return nil, nil
+	}
+
+	if isEntrypointSecret(secretObj) {
+		params, err := extraRegistrationParamsFromSecret(secretObj)
+		if err != nil {
+			return secretObj, fmt.Errorf("failed to extract registration params from secret %s/%s: %w", secretObj.Namespace, secretObj.Name, err)
+		}
+
+		registration, err := registrationFromSecretEntrypoint(params)
+		if err != nil {
+			return secretObj, fmt.Errorf("failed to create registration from secret %s/%s: %w", secretObj.Namespace, secretObj.Name, err)
+		}
+
+		applier := h.apply.WithSetID(controllerID).
+			WithSetOwnerReference(true, false)
+
+		newSecret := secretObj.DeepCopy()
+		newSecret.Annotations[LabelSccLastProcessed] = time.Now().Format(time.RFC3339)
+		newSecret.Labels[LabelSccHash] = fmt.Sprintf("%x", params.id)
+
+		if err := applier.ApplyObjects(
+			registration,
+			newSecret,
+		); err != nil {
+			return secretObj,
+				fmt.Errorf(
+					"failed to apply matching registration and secret updates %s/%s: %w",
+					secretObj.Namespace,
+					secretObj.Name,
+					err,
+				)
+		}
+	} else {
+		h.log.Debugf("Ignoring secret %s/%s, not related to SCC", secretObj.Namespace, secretObj.Name)
+		return secretObj, nil
+	}
+	return secretObj, nil
+}
+
+func (h *handler) OnSecretRemove(name string, secretObj *corev1.Secret) (*corev1.Secret, error) {
+	if secretObj == nil {
+		return nil, nil
+	}
+	return secretObj, nil
 }
 
 func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registration) (*v1.Registration, error) {
