@@ -45,6 +45,12 @@ type RegistrationParams struct {
 	regType v1.RegistrationMode
 }
 
+func (r RegistrationParams) Labels() map[string]string {
+	return map[string]string{
+		LabelSccHash: r.id,
+	}
+}
+
 func registrationFromSecretEntrypoint(
 	params RegistrationParams,
 ) (*v1.Registration, error) {
@@ -62,7 +68,6 @@ func registrationFromSecretEntrypoint(
 			GenerateName: "registration-",
 			Labels: map[string]string{
 				LabelSccHash: fmt.Sprintf("%x", params.id),
-				// TODO:
 			},
 		},
 		Spec: v1.RegistrationSpec{

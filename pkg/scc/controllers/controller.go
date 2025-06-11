@@ -14,7 +14,6 @@ import (
 	"github.com/rancher/rancher/pkg/scc/suseconnect/credentials"
 	"github.com/rancher/rancher/pkg/scc/systeminfo"
 	"github.com/rancher/rancher/pkg/scc/util"
-	"github.com/rancher/rancher/pkg/scc/util/jitterbug"
 	"github.com/rancher/rancher/pkg/scc/util/log"
 	"github.com/rancher/wrangler/v3/pkg/apply"
 	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
@@ -22,12 +21,10 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
 )
 
 const (
-	sccNamespace            = "cattle-scc-system"
 	sccEntrypointSecretName = "scc-registration"
 
 	controllerID    = "prime-registration"
@@ -71,30 +68,35 @@ type handler struct {
 	registrations      registrationControllers.RegistrationController
 	registrationCache  registrationControllers.RegistrationCache
 	secrets            v1core.SecretController
+	secretCache        v1core.SecretCache
 	sccCredentials     *credentials.CredentialSecretsAdapter
 	systemInfoExporter *systeminfo.InfoExporter
+	systemNamespace    string
 }
 
 func Register(
 	ctx context.Context,
+	systemNamespace string,
 	wApply apply.Apply,
 	registrations registrationControllers.RegistrationController,
 	secrets v1core.SecretController,
 	systemInfoExporter *systeminfo.InfoExporter,
 ) {
 	controller := &handler{
-		apply: wApply.
-			WithCacheTypes(registrations, secrets),
-		// WithSetID(controllerID).
-		// WithSetOwnerReference(true, false),
+		apply:              wApply.WithCacheTypes(registrations, secrets),
 		log:                log.NewControllerLogger("registration-controller"),
 		ctx:                ctx,
 		registrations:      registrations,
 		registrationCache:  registrations.Cache(),
 		secrets:            secrets,
-		sccCredentials:     credentials.New(secrets),
+		secretCache:        secrets.Cache(),
+		sccCredentials:     credentials.New(systemNamespace, secrets),
 		systemInfoExporter: systemInfoExporter,
+		systemNamespace:    systemNamespace,
 	}
+
+	controller.initIndexers()
+	controller.initResolvers(ctx)
 
 	registrations.OnChange(ctx, controllerID, controller.OnRegistrationChange)
 	registrations.OnRemove(ctx, controllerID, controller.OnRegistrationRemove)
@@ -105,7 +107,6 @@ func Register(
 
 	registrations.OnRemove(ctx, controllerID+"remove", controller.OnRegistrationRemove)
 
-	// TODO : might want a resolver as well
 	secrets.OnChange(ctx, controllerID, controller.OnSecretChange)
 	secrets.OnRemove(ctx, controllerID, controller.OnSecretRemove)
 
@@ -115,69 +116,16 @@ func Register(
 		secrets,
 		registrations,
 	)
-
-	// Configure jitter based daily revalidation trigger
-	jitterbugConfig := jitterbug.Config{
-		BaseInterval:    prodBaseCheckin,
-		JitterMax:       3,
-		JitterMaxScale:  time.Hour,
-		PollingInterval: 9 * time.Minute,
-	}
-	if util.VersionIsDevBuild() {
-		jitterbugConfig = jitterbug.Config{
-			BaseInterval:    devBaseCheckin,
-			JitterMax:       10,
-			JitterMaxScale:  time.Minute,
-			PollingInterval: 9 * time.Second,
-		}
-	}
-	jitterCheckin := jitterbug.NewJitterChecker(
-		&jitterbugConfig,
-		func(nextTrigger, strictDeadline time.Duration) (bool, error) {
-			registrationsCacheList, err := controller.registrationCache.List(labels.Everything())
-			if err != nil {
-				controller.log.Errorf("Failed to list registrations: %v", err)
-				return false, err
-			}
-
-			checkInWasTriggered := false
-			for _, registrationObj := range registrationsCacheList {
-				registrationHandler := controller.prepareHandler(registrationObj.Spec.Mode)
-
-				// Always skip offline mode registrations, or Registrations that haven't progressed to activation
-				if registrationObj.Spec.Mode == v1.RegistrationModeOffline ||
-					registrationHandler.NeedsRegistration(registrationObj) ||
-					registrationObj.Status.ActivationStatus.LastValidatedTS.IsZero() {
-					continue
-				}
-
-				lastValidated := registrationObj.Status.ActivationStatus.LastValidatedTS
-
-				timeSinceLastValidation := time.Since(lastValidated.Time)
-				// If the time since last validation is after the daily trigger (which includes jitter), we revalidate.
-				// Also, ensure that when a registration is over the strictDeadline it is checked.
-				if timeSinceLastValidation >= nextTrigger || timeSinceLastValidation >= strictDeadline {
-					checkInWasTriggered = true
-					// TODO (o&b): 95% sure that enqueue alone won't be good enough based on other controller logic.
-					// Either we need to adjust that controller logic so enqueue alone is enough, or use `CheckNow`.
-					// Seems check now is most simple as it reuses controller logic
-					registrations.Enqueue(registrationObj.Name)
-				}
-			}
-
-			return checkInWasTriggered, nil
-		},
-	)
-	jitterCheckin.Start()
-	go jitterCheckin.Run()
+	go controller.runRegistration()
 }
 
-func (h *handler) prepareHandler(mode v1.RegistrationMode) SCCHandler {
+func (h *handler) prepareHandler(systemNamespace string, mode v1.RegistrationMode) SCCHandler {
 	if mode == v1.RegistrationModeOffline {
 		return sccOfflineMode{
 			log:                h.log.WithField("handler", "offline"),
 			systemInfoExporter: h.systemInfoExporter,
 			secrets:            h.secrets,
+			systemNamespace:    systemNamespace,
 		}
 	}
 	return sccOnlineMode{
@@ -185,6 +133,7 @@ func (h *handler) prepareHandler(mode v1.RegistrationMode) SCCHandler {
 		sccCredentials:     h.sccCredentials,
 		systemInfoExporter: h.systemInfoExporter,
 		secrets:            h.secrets,
+		systemNamespace:    systemNamespace,
 	}
 }
 
@@ -196,8 +145,8 @@ func minResyncInterval() time.Time {
 	return now.Add(-prodMinCheckin)
 }
 
-func isEntrypointSecret(secretObj *corev1.Secret) bool {
-	if secretObj.Name != sccEntrypointSecretName || secretObj.Namespace != sccNamespace {
+func (h *handler) isEntrypointSecret(secretObj *corev1.Secret) bool {
+	if secretObj.Name != sccEntrypointSecretName || secretObj.Namespace != h.systemNamespace {
 		return false
 	}
 	return true
@@ -205,10 +154,10 @@ func isEntrypointSecret(secretObj *corev1.Secret) bool {
 
 func (h *handler) OnSecretChange(name string, secretObj *corev1.Secret) (*corev1.Secret, error) {
 	if secretObj == nil || secretObj.DeletionTimestamp != nil {
-		return nil, nil
+		return secretObj, nil
 	}
 
-	if isEntrypointSecret(secretObj) {
+	if h.isEntrypointSecret(secretObj) {
 		params, err := extraRegistrationParamsFromSecret(secretObj)
 		if err != nil {
 			return secretObj, fmt.Errorf("failed to extract registration params from secret %s/%s: %w", secretObj.Namespace, secretObj.Name, err)
@@ -219,8 +168,9 @@ func (h *handler) OnSecretChange(name string, secretObj *corev1.Secret) (*corev1
 			return secretObj, fmt.Errorf("failed to create registration from secret %s/%s: %w", secretObj.Namespace, secretObj.Name, err)
 		}
 
-		applier := h.apply.WithSetID(controllerID).
-			WithSetOwnerReference(true, false)
+		applier := h.apply.WithSetID(
+			controllerID + "-entrypoint-" + params.id,
+		).WithOwner(secretObj)
 
 		newSecret := secretObj.DeepCopy()
 		newSecret.Annotations[LabelSccLastProcessed] = time.Now().Format(time.RFC3339)
@@ -249,6 +199,7 @@ func (h *handler) OnSecretRemove(name string, secretObj *corev1.Secret) (*corev1
 	if secretObj == nil {
 		return nil, nil
 	}
+	// TODO : determine behaviour
 	return secretObj, nil
 }
 
@@ -266,7 +217,7 @@ func (h *handler) OnRegistrationChange(name string, registrationObj *v1.Registra
 		return registrationObj, errors.New("registration has failed status; create a new one to retry")
 	}
 
-	registrationHandler := h.prepareHandler(registrationObj.Spec.Mode)
+	registrationHandler := h.prepareHandler(h.systemNamespace, registrationObj.Spec.Mode)
 
 	// Skip keepalive for anything activated within the last 20 hours
 	if !registrationHandler.NeedsRegistration(registrationObj) &&
@@ -465,9 +416,10 @@ func (h *handler) OnRegistrationRemove(name string, registrationObj *v1.Registra
 		return nil, nil
 	}
 
-	regHandler := h.prepareHandler(registrationObj.Spec.Mode)
+	regHandler := h.prepareHandler(h.systemNamespace, registrationObj.Spec.Mode)
 	deRegErr := regHandler.Deregister()
 	if deRegErr != nil {
+		// TODO : this might be fine, but we may want a finalizer here
 		h.log.Warn(deRegErr)
 	}
 

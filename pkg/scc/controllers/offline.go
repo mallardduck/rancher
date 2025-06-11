@@ -14,6 +14,7 @@ type sccOfflineMode struct {
 	log                log.StructuredLogger
 	systemInfoExporter *systeminfo.InfoExporter
 	secrets            v1core.SecretController
+	systemNamespace    string
 }
 
 func (s sccOfflineMode) NeedsRegistration(registrationObj *v1.Registration) bool {

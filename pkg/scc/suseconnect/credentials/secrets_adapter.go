@@ -10,7 +10,6 @@ import (
 
 const (
 	SecretName  = "rancher-scc-system-credentials"
-	Namespace   = "cattle-system"
 	UsernameKey = "systemLogin"
 	PasswordKey = "password"
 	TokenKey    = "systemToken"
@@ -21,14 +20,15 @@ type CredentialSecretsAdapter struct {
 	secrets     v1core.SecretController
 	credentials SccCredentials
 	// TODO: implement secret reconcile logic
-	currentSHA string
+	currentSHA      string
+	systemNamespace string
 }
 
-func New(secrets v1core.SecretController) *CredentialSecretsAdapter {
+func New(systemNamespace string, secrets v1core.SecretController) *CredentialSecretsAdapter {
 	newAdapterCreds := NewCredentials()
 
 	// Load initial creds from secret
-	sccCreds, err := secrets.Get(Namespace, SecretName, metav1.GetOptions{})
+	sccCreds, err := secrets.Get(systemNamespace, SecretName, metav1.GetOptions{})
 	if err == nil && sccCreds != nil && len(sccCreds.Data) != 0 {
 		username, _ := sccCreds.Data[UsernameKey]
 		password, _ := sccCreds.Data[PasswordKey]
@@ -49,7 +49,7 @@ func (c *CredentialSecretsAdapter) Refresh() error {
 
 func (c *CredentialSecretsAdapter) loadCredentials() error {
 	// TODO gather errors
-	sccCreds, err := c.secrets.Get(Namespace, SecretName, metav1.GetOptions{})
+	sccCreds, err := c.secrets.Get(c.systemNamespace, SecretName, metav1.GetOptions{})
 	if err == nil && sccCreds != nil && len(sccCreds.Data) != 0 {
 		username, _ := sccCreds.Data[UsernameKey]
 		password, _ := sccCreds.Data[PasswordKey]
@@ -64,7 +64,7 @@ func (c *CredentialSecretsAdapter) loadCredentials() error {
 func (c *CredentialSecretsAdapter) saveCredentials() error {
 	create := false
 	// TODO gather errors
-	sccCreds, err := c.secrets.Get(Namespace, SecretName, metav1.GetOptions{})
+	sccCreds, err := c.secrets.Get(c.systemNamespace, SecretName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
@@ -74,7 +74,7 @@ func (c *CredentialSecretsAdapter) saveCredentials() error {
 		sccCreds = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      SecretName,
-				Namespace: Namespace,
+				Namespace: c.systemNamespace,
 			},
 			Data: map[string][]byte{},
 		}
@@ -106,7 +106,7 @@ func (c *CredentialSecretsAdapter) saveCredentials() error {
 }
 
 func (c *CredentialSecretsAdapter) Remove() error {
-	return c.secrets.Delete(Namespace, SecretName, &metav1.DeleteOptions{})
+	return c.secrets.Delete(c.systemNamespace, SecretName, &metav1.DeleteOptions{})
 }
 
 func (c *CredentialSecretsAdapter) HasAuthentication() bool {

@@ -3,6 +3,8 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"net/http"
+
 	"github.com/SUSE/connect-ng/pkg/connection"
 	v1 "github.com/rancher/rancher/pkg/apis/scc.cattle.io/v1"
 	"github.com/rancher/rancher/pkg/scc/suseconnect"
@@ -13,7 +15,6 @@ import (
 	v1core "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
 )
 
 type sccOnlineMode struct {
@@ -21,6 +22,7 @@ type sccOnlineMode struct {
 	sccCredentials     *credentials.CredentialSecretsAdapter
 	systemInfoExporter *systeminfo.InfoExporter
 	secrets            v1core.SecretController
+	systemNamespace    string
 }
 
 func (s sccOnlineMode) NeedsRegistration(registrationObj *v1.Registration) bool {
@@ -55,7 +57,7 @@ func (s sccOnlineMode) RegisterSystem(registrationObj *v1.Registration) (susecon
 }
 
 func isNonRecoverableHttpError(err error) bool {
-	var sccApiError connection.ApiError
+	var sccApiError *connection.ApiError
 
 	if errors.As(err, &sccApiError) {
 		httpCode := sccApiError.Code
@@ -72,7 +74,7 @@ func isNonRecoverableHttpError(err error) bool {
 }
 
 func getHttpErrorCode(err error) *int {
-	var sccApiError connection.ApiError
+	var sccApiError *connection.ApiError
 
 	if errors.As(err, &sccApiError) {
 		httpCode := sccApiError.Code
@@ -121,7 +123,7 @@ func (s sccOnlineMode) PrepareRegisteredSystem(registration *v1.Registration) (*
 	v1.ResourceConditionReady.SetStatusBool(registration, true)
 
 	registration.Status.SystemCredentialsSecretRef = &corev1.SecretReference{
-		Namespace: credentials.Namespace,
+		Namespace: s.systemNamespace,
 		Name:      credentials.SecretName,
 	}
 
@@ -131,7 +133,7 @@ func (s sccOnlineMode) PrepareRegisteredSystem(registration *v1.Registration) (*
 func (s sccOnlineMode) fetchRegCode(registrationObj *v1.Registration) string {
 	// Set to global default, or user configured value from the Registration resource
 	regCodeSecretRef := &corev1.SecretReference{
-		Namespace: "cattle-system",
+		Namespace: s.systemNamespace,
 		Name:      util.RegCodeSecretName,
 	}
 	if registrationObj.Spec.RegistrationRequest.RegistrationCodeSecretRef != nil {

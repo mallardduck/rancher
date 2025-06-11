@@ -1,9 +1,10 @@
 package credentials
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 
 	"github.com/rancher/wrangler/v3/pkg/generic/fake"
 	"go.uber.org/mock/gomock"
@@ -14,10 +15,11 @@ func TestBasicNewSecretsAdapter(t *testing.T) {
 	gomockCtrl := gomock.NewController(t)
 	mockSecretsController := fake.NewMockControllerInterface[*v1.Secret, *v1.SecretList](gomockCtrl)
 
+	systemNs := "cattle-system"
 	// Define expected calls to our mock controller using gomock.
-	mockSecretsController.EXPECT().Get(Namespace, SecretName, metav1.GetOptions{}).MaxTimes(1)
+	mockSecretsController.EXPECT().Get(systemNs, SecretName, metav1.GetOptions{}).MaxTimes(1)
 
-	secretsBackedCredentials := New(mockSecretsController)
+	secretsBackedCredentials := New(systemNs, mockSecretsController)
 	assert.Equal(t, &CredentialSecretsAdapter{
 		secrets: mockSecretsController,
 	}, secretsBackedCredentials)
@@ -28,7 +30,7 @@ func testSecret(name string, namespace string, dataOverride *map[string]string) 
 		name = SecretName
 	}
 	if namespace == "" {
-		namespace = Namespace
+		namespace = "cattle-system"
 	}
 
 	secretData := map[string][]byte{
@@ -69,7 +71,7 @@ func preparedSecretsMock(t *testing.T) *fake.MockControllerInterface[*v1.Secret,
 	defaultTestSecret := testSecret("", "", nil)
 
 	// Define expected calls to our mock controller using gomock.
-	mockSecretsController.EXPECT().Get(Namespace, SecretName, metav1.GetOptions{}).Return(&defaultTestSecret, nil).AnyTimes()
+	mockSecretsController.EXPECT().Get("cattle-system", SecretName, metav1.GetOptions{}).Return(&defaultTestSecret, nil).AnyTimes()
 	mockSecretsController.EXPECT().Create(defaultTestSecret).Return(&defaultTestSecret, nil).AnyTimes()
 
 	return mockSecretsController
@@ -78,7 +80,7 @@ func preparedSecretsMock(t *testing.T) *fake.MockControllerInterface[*v1.Secret,
 func TestNewSecretsAdapter(t *testing.T) {
 	mockSecretsController := preparedSecretsMock(t)
 
-	secretsBackedCredentials := New(mockSecretsController)
+	secretsBackedCredentials := New("cattle-system", mockSecretsController)
 	assert.Equal(t, &CredentialSecretsAdapter{
 		secrets: mockSecretsController,
 		credentials: SccCredentials{
@@ -104,7 +106,7 @@ func TestNewSecretsAdapter(t *testing.T) {
 func TestSecretsAdapterCredentials_Basic(t *testing.T) {
 	mockSecretsController := preparedSecretsMock(t)
 
-	secretsBackedCredentials := New(mockSecretsController)
+	secretsBackedCredentials := New("cattle-system", mockSecretsController)
 	assert.Equal(t, &CredentialSecretsAdapter{
 		secrets: mockSecretsController,
 		credentials: SccCredentials{
@@ -160,7 +162,7 @@ func TestSecretsAdapterCredentials_Basic(t *testing.T) {
 func TestSecretsAdapterSccCredentials(t *testing.T) {
 	mockSecretsController := preparedSecretsMock(t)
 
-	secretsBackedCredentials := New(mockSecretsController)
+	secretsBackedCredentials := New("cattle-system", mockSecretsController)
 	assert.Equal(t, &CredentialSecretsAdapter{
 		secrets: mockSecretsController,
 		credentials: SccCredentials{
@@ -178,7 +180,7 @@ func TestSecretsAdapterSccCredentials(t *testing.T) {
 func TestSecretEmptyTokenUpdate(t *testing.T) {
 	mockSecretsController := preparedSecretsMock(t)
 
-	secretsBackedCredentials := New(mockSecretsController)
+	secretsBackedCredentials := New("cattle-system", mockSecretsController)
 	assert.Equal(t, &CredentialSecretsAdapter{
 		secrets: mockSecretsController,
 		credentials: SccCredentials{

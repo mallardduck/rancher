@@ -199,8 +199,6 @@ func Setup(
 		if err != nil {
 			initOperator.log.Errorf("error creating first-start `Registration`: %s", err.Error())
 		}
-
-		return
 	}()
 
 	// Because the controller `Register` call will start activation refresh timers,
@@ -209,6 +207,7 @@ func Setup(
 	go initOperator.waitForSystemReady(func() {
 		controllers.Register(
 			ctx,
+			"cattle-system",
 			wContext.Apply,
 			initOperator.sccResourceFactory.Scc().V1().Registration(),
 			initOperator.secrets,
