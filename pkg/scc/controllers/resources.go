@@ -16,6 +16,7 @@ import (
 const (
 	dataRegCode          = "regCode"
 	dataRegistrationType = "registrationType"
+	dataCertificate      = "certificate"
 )
 
 func (h *handler) isRancherEntrypointSecret(secretObj *corev1.Secret) bool {
@@ -40,8 +41,13 @@ func extraRegistrationParamsFromSecret(secret *corev1.Secret) (RegistrationParam
 		return RegistrationParams{}, fmt.Errorf("secret does not have data %s", dataRegCode)
 	}
 
+	offlineRegCert, certOk := secret.Data[dataCertificate]
+	// TODO: do we care to validate this; online shouldn't have this at all, offline has it eventually
+
 	hasher := md5.New()
 	data := append([]byte(regMode), regCode...)
+	// TODO: we both want the RegCert included and do not want it included; it should update Registration when it changes, but not change the name ideally
+	data = append(data, offlineRegCert...)
 	if _, err := hasher.Write(data); err != nil {
 		return RegistrationParams{}, err
 	}
@@ -49,9 +55,10 @@ func extraRegistrationParamsFromSecret(secret *corev1.Secret) (RegistrationParam
 	id := hex.EncodeToString(hasher.Sum(nil))
 
 	return RegistrationParams{
-		hash:    id,
-		regCode: string(regCode),
-		regType: regMode,
+		hash:               id,
+		regType:            regMode,
+		regCode:            string(regCode),
+		hasOfflineCertData: certOk && len(offlineRegCert) > 0,
 		secretRef: &corev1.SecretReference{
 			Name:      consts.ResourceSCCEntrypointSecretName,
 			Namespace: secret.Namespace,
@@ -60,10 +67,11 @@ func extraRegistrationParamsFromSecret(secret *corev1.Secret) (RegistrationParam
 }
 
 type RegistrationParams struct {
-	hash      string
-	regCode   string
-	regType   v1.RegistrationMode
-	secretRef *corev1.SecretReference
+	hash               string
+	regType            v1.RegistrationMode
+	regCode            string
+	hasOfflineCertData bool
+	secretRef          *corev1.SecretReference
 }
 
 func (r RegistrationParams) Labels() map[string]string {
@@ -76,7 +84,7 @@ func (r RegistrationParams) Labels() map[string]string {
 func (h *handler) registrationFromSecretEntrypoint(
 	params RegistrationParams,
 ) (*v1.Registration, error) {
-	if params.regType != v1.RegistrationModeOnline && params.regType != v1.RegistrationModeOffline {
+	if !params.regType.Valid() {
 		return nil, fmt.Errorf(
 			"invalid registration type %s, must be one of %s or %s",
 			params.regType,
@@ -100,7 +108,7 @@ func (h *handler) registrationFromSecretEntrypoint(
 	}
 
 	reg.Labels = params.Labels()
-	reg.Spec = paramsToReg(params)
+	reg.Spec = paramsToRegSpec(params)
 	if !slices.Contains(reg.Finalizers, consts.FinalizerSccRegistration) {
 		if reg.Finalizers == nil {
 			reg.Finalizers = []string{}
@@ -110,11 +118,18 @@ func (h *handler) registrationFromSecretEntrypoint(
 	return reg, nil
 }
 
-func paramsToReg(params RegistrationParams) v1.RegistrationSpec {
-	return v1.RegistrationSpec{
+func paramsToRegSpec(params RegistrationParams) v1.RegistrationSpec {
+	regSpec := v1.RegistrationSpec{
 		Mode: params.regType,
-		RegistrationRequest: &v1.RegistrationRequest{
-			RegistrationCodeSecretRef: params.secretRef,
-		},
 	}
+
+	if params.regType == v1.RegistrationModeOnline {
+		regSpec.RegistrationRequest = &v1.RegistrationRequest{
+			RegistrationCodeSecretRef: params.secretRef,
+		}
+	} else if params.regType == v1.RegistrationModeOffline && params.hasOfflineCertData {
+		regSpec.OfflineRegistrationCertificateSecretRef = params.secretRef
+	}
+
+	return regSpec
 }
