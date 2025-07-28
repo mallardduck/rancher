@@ -17,6 +17,9 @@ import (
 )
 
 const (
+	ManagedByAnnotation = "app.kubernetes.io/managed-by"
+	PartOfAnnotation    = "app.kubernetes.io/part-of"
+
 	BackupLabel = "resources.cattle.io/backup"
 )
 
@@ -98,6 +101,10 @@ func CreateTelemetryNamespace(ctx context.Context, wContext *wrangler.Context) (
 	return namespaces.Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: consts.TelemetrySecretNamespace,
+			Annotations: map[string]string{
+				ManagedByAnnotation: "rancher",
+				PartOfAnnotation:    "rancher-telemetry",
+			},
 			Labels: map[string]string{
 				BackupLabel: "false",
 			},
