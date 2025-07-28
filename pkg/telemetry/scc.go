@@ -9,7 +9,8 @@ const (
 	SccSecretName      = "rancher-scc-telemetry"
 	SccSecretNamespace = "cattle-system"
 
-	archUnknown = "unknown"
+	archUnknown              = "unknown"
+	rancherProductIdentifier = "rancher"
 )
 
 // SccPayload represents the canonical golang implementation of `schemas/scc-RMSSubscription.json`
@@ -149,8 +150,7 @@ func GenerateSCCPayload(telG RancherManagerTelemetry) (*SccPayload, error) {
 			ClusterUUID: telG.ClusterUUID(),
 			Version:     telG.RancherVersion(),
 			Arch:        archUnknown,
-			// TODO
-			Product: "",
+			Product:     rancherProductIdentifier,
 			// TODO
 			Git:       "",
 			ServerURL: telG.ServerURL(),
