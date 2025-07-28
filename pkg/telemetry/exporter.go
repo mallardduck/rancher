@@ -18,7 +18,7 @@ import (
 )
 
 type TelemetryExporterManager interface {
-	// Registers an exporter. Must be registered before Start
+	// Register will Register an exporter. Must be registered before Start
 	Register(name string, exp TelemetryExporter, retry time.Duration)
 	// Start starts the collection and export background tasks
 	Start(ctx context.Context, info initcond.InitInfo) error
