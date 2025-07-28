@@ -12,6 +12,7 @@ const (
 	archUnknown = "unknown"
 )
 
+// SccPayload represents the canonical golang implementation of `schemas/scc-RMSSubscription.json`
 type SccPayload struct {
 	Version         string          `json:"version"`
 	Subscription    SccSubscription `json:"subscription"`
