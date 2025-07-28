@@ -74,8 +74,8 @@ func GenerateSCCPayload(telG RancherManagerTelemetry) (*SccPayload, error) {
 	now := time.Now()
 	systemsMap := map[sccSystemKey]int{}
 	clustersMap := map[nodeCount]int{}
-	systems := []SccSystem{}
-	clusters := []SccCluster{}
+	var systems []SccSystem
+	var clusters []SccCluster
 
 	localCluster := telG.LocalClusterTelemetry()
 	localNodeCount := 0
