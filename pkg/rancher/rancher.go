@@ -472,6 +472,7 @@ func (r *Rancher) Start(ctx context.Context) error {
 				"cluster-uuid":    initInfo.ClusterUUID,
 				"install-uuid":    initInfo.InstallUUID,
 				"rancher-version": initInfo.RancherVersion,
+				"git-hash":        initInfo.GitHash,
 			},
 		)
 		log.Info("telemetry manger started")

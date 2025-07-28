@@ -1,6 +1,7 @@
 package initcond
 
 import (
+	"github.com/rancher/rancher/pkg/version"
 	"time"
 
 	"github.com/rancher/rancher/pkg/settings"
@@ -19,6 +20,7 @@ type InitInfo struct {
 	InstallUUID    string
 	ServerURL      string
 	RancherVersion string
+	GitHash        string
 }
 
 func (i InitInfo) isReady() bool {
@@ -42,6 +44,7 @@ func getInitInfo(wContext *wrangler.Context) InitInfo {
 		ServerURL:      serverURL,
 		InstallUUID:    installUUID,
 		RancherVersion: rancherVersion,
+		GitHash:        version.GitCommit,
 	}
 }
 
@@ -55,6 +58,7 @@ func WaitForInfo(wContext *wrangler.Context, initInfo *InitInfo, done chan struc
 			initInfo.ClusterUUID = gotInitInfo.ClusterUUID
 			initInfo.InstallUUID = gotInitInfo.InstallUUID
 			initInfo.RancherVersion = gotInitInfo.RancherVersion
+			initInfo.GitHash = gotInitInfo.GitHash
 			close(done)
 		}
 		logrus.Info("telemetry manager info not available yet, re-queing check...")

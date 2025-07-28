@@ -151,9 +151,8 @@ func GenerateSCCPayload(telG RancherManagerTelemetry) (*SccPayload, error) {
 			Version:     telG.RancherVersion(),
 			Arch:        archUnknown,
 			Product:     rancherProductIdentifier,
-			// TODO
-			Git:       "",
-			ServerURL: telG.ServerURL(),
+			Git:         telG.RancherGitHash(),
+			ServerURL:   telG.ServerURL(),
 		},
 		Timestamp: now,
 	}, nil
