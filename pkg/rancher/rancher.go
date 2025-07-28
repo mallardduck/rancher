@@ -13,6 +13,7 @@ import (
 
 	"github.com/rancher/rancher/pkg/scc"
 	"github.com/rancher/rancher/pkg/telemetry"
+	telemetryConsts "github.com/rancher/rancher/pkg/telemetry/consts"
 	"github.com/rancher/rancher/pkg/telemetry/initcond"
 
 	"github.com/Masterminds/semver/v3"
@@ -438,13 +439,14 @@ func (r *Rancher) Start(ctx context.Context) error {
 
 	if features.RancherSCCRegistrationExtension.Enabled() {
 		r.Wrangler.OnLeader(func(ctx context.Context) error {
+			// Register all built-in exporters to default ns path
 			telemetryManager.Register(
 				"scc",
 				telemetry.NewSecretExporter(
 					r.Wrangler.Core.Secret(),
 					&v1.SecretReference{
 						Name:      telemetry.SccSecretName,
-						Namespace: telemetry.SccSecretNamespace,
+						Namespace: telemetryConsts.TelemetrySecretNamespace,
 					},
 				),
 				time.Second*60,

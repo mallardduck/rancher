@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	SccSecretName      = "rancher-scc-telemetry"
-	SccSecretNamespace = "cattle-system"
+	SccSecretName = "rancher-scc-telemetry"
 
 	archUnknown              = "unknown"
 	rancherProductIdentifier = "rancher"
