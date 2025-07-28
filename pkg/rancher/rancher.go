@@ -438,10 +438,15 @@ func (r *Rancher) Start(ctx context.Context) error {
 
 	if features.RancherSCCRegistrationExtension.Enabled() {
 		r.Wrangler.OnLeader(func(ctx context.Context) error {
-			telemetryManager.Register("scc", telemetry.NewSecretExporter(r.Wrangler.Core.Secret(), &v1.SecretReference{
-				Name:      telemetry.SccSecretName,
-				Namespace: telemetry.SccSecretNamespace,
-			}),
+			telemetryManager.Register(
+				"scc",
+				telemetry.NewSecretExporter(
+					r.Wrangler.Core.Secret(),
+					&v1.SecretReference{
+						Name:      telemetry.SccSecretName,
+						Namespace: telemetry.SccSecretNamespace,
+					},
+				),
 				time.Second*60,
 			)
 			logrus.Debug("[rancher::Start] starting RancherSCCRegistrationExtension")
