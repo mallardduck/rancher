@@ -465,6 +465,20 @@ func (r *Rancher) Start(ctx context.Context) error {
 	r.Wrangler.OnLeader(r.authServer.OnLeader)
 
 	r.auditLog.Start(ctx)
+
+	// Rancher core telemetry init
+	go func() {
+		retry.RetryOnConflict(retry.DefaultBackoff,
+			func() error {
+				telemetryNamespace, err := initcond.CreateTelemetryNamespace(context.TODO(), r.Wrangler)
+				if err != nil {
+					logrus.Warnf("Unable to create telemetry namespace: %v", err)
+					return err
+				}
+				logrus.Infof("Created telemetry namespace %s", telemetryNamespace)
+				return nil
+			})
+	}()
 	initChan := make(chan struct{})
 	initInfo := &initcond.InitInfo{}
 	go func() {
