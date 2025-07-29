@@ -204,7 +204,7 @@ func SCCRegistrationCRDs() []string {
 // TelemetryCRDs returns a list of required CRD names needed for rancher telemetry
 func TelemetryCRDs() []string {
 	return []string{
-		"secretrequest.telemetry.cattle.io",
+		"secretrequests.telemetry.cattle.io",
 	}
 }
 
@@ -279,7 +279,7 @@ var MigratedResources = map[string]bool{
 	"roletemplates.management.cattle.io":                              true,
 	"samlproviders.management.cattle.io":                              false,
 	"samltokens.management.cattle.io":                                 false,
-	"secretrequest.telemetry.cattle.io":                               true,
+	"secretrequests.telemetry.cattle.io":                              true,
 	"serviceaccounttokens.project.cattle.io":                          false,
 	"settings.management.cattle.io":                                   false,
 	"sshauths.project.cattle.io":                                      false,

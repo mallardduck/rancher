@@ -13,7 +13,6 @@ import (
 
 	"github.com/rancher/rancher/pkg/scc"
 	"github.com/rancher/rancher/pkg/telemetry"
-	telemetryConsts "github.com/rancher/rancher/pkg/telemetry/consts"
 	"github.com/rancher/rancher/pkg/telemetry/initcond"
 
 	"github.com/Masterminds/semver/v3"
@@ -50,6 +49,7 @@ import (
 	"github.com/rancher/rancher/pkg/namespace"
 	"github.com/rancher/rancher/pkg/serviceaccounttoken"
 	"github.com/rancher/rancher/pkg/settings"
+	telemetrycontrollers "github.com/rancher/rancher/pkg/telemetry/controllers"
 	"github.com/rancher/rancher/pkg/tls"
 	"github.com/rancher/rancher/pkg/types/config"
 	"github.com/rancher/rancher/pkg/ui"
@@ -439,18 +439,34 @@ func (r *Rancher) Start(ctx context.Context) error {
 
 	if features.RancherSCCRegistrationExtension.Enabled() {
 		r.Wrangler.OnLeader(func(ctx context.Context) error {
-			// Register all built-in exporters to default ns path
-			telemetryManager.Register(
-				"scc",
-				telemetry.NewSecretExporter(
-					r.Wrangler.Core.Secret(),
-					&v1.SecretReference{
-						Name:      telemetry.SccSecretName,
-						Namespace: telemetryConsts.TelemetrySecretNamespace,
-					},
-				),
-				time.Second*60,
-			)
+
+			// Rancher core telemetry init
+			telemetrycontrollers.RegisterControllers(ctx, r.Wrangler)
+			go func() {
+				retry.RetryOnConflict(retry.DefaultBackoff,
+					func() error {
+						telemetryNamespace, err := initcond.CreateTelemetryNamespace(context.TODO(), r.Wrangler)
+						if err != nil {
+							logrus.Warnf("Unable to create telemetry namespace: %v", err)
+							return err
+						}
+						logrus.Infof("Created telemetry namespace %s", telemetryNamespace)
+						return nil
+					})
+			}()
+			//
+			//// Register all built-in exporters to default ns path
+			//telemetryManager.Register(
+			//	"scc",
+			//	telemetry.NewSecretExporter(
+			//		r.Wrangler.Core.Secret(),
+			//		&v1.SecretReference{
+			//			Name:      telemetry.SccSecretName,
+			//			Namespace: telemetryConsts.TelemetrySecretNamespace,
+			//		},
+			//	),
+			//	time.Second*60,
+			//)
 			logrus.Debug("[rancher::Start] starting RancherSCCRegistrationExtension")
 
 			//TODO(dan) : reconcile scc-deployment here instead
@@ -466,19 +482,6 @@ func (r *Rancher) Start(ctx context.Context) error {
 
 	r.auditLog.Start(ctx)
 
-	// Rancher core telemetry init
-	go func() {
-		retry.RetryOnConflict(retry.DefaultBackoff,
-			func() error {
-				telemetryNamespace, err := initcond.CreateTelemetryNamespace(context.TODO(), r.Wrangler)
-				if err != nil {
-					logrus.Warnf("Unable to create telemetry namespace: %v", err)
-					return err
-				}
-				logrus.Infof("Created telemetry namespace %s", telemetryNamespace)
-				return nil
-			})
-	}()
 	initChan := make(chan struct{})
 	initInfo := &initcond.InitInfo{}
 	go func() {

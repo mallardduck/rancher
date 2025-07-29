@@ -48,3 +48,14 @@ type SecretRequestStatus struct {
 	// +optional
 	LastSyncTS *metav1.Time `json:"lastSyncTS"`
 }
+
+func (sr *SecretRequest) HasCondition(matchCond condition.Cond) bool {
+	conditions := sr.Status.Conditions
+	for _, cond := range conditions {
+		if cond.Type == string(matchCond) {
+			return true
+		}
+	}
+
+	return false
+}

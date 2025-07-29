@@ -153,6 +153,8 @@ type rancherTelemetryImpl struct {
 	managedNodes    map[ClusterID][]*v3.Node
 }
 
+var _ RancherManagerTelemetry = (*rancherTelemetryImpl)(nil)
+
 func (r *rancherTelemetryImpl) ManagedClusterCount() int {
 	return 1 + len(r.managedClusters)
 }
