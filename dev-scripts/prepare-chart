@@ -69,4 +69,5 @@ sed_i_wrapper -i -e "s/%PRE_UPGRADE_IMAGE_TAG%/${rancher_shell_image_tag}/g" ./c
 
 if [[ $REPO != "rancher" ]]; then
   sed_i_wrapper -i -e "s#rancherImage: rancher/rancher#rancherImage: ${test_image}#g" ./chart/values.yaml
+  sed_i_wrapper -i -e "s#repository: rancher/rancher#repository: ${test_image}#g" ./chart/values.yaml
 fi
