@@ -18,6 +18,7 @@ ARG GODEP_WRANGLER=scratch
 ARG GODEP_WRANGLER_PATH
 
 ARG CHART_DEFAULT_BRANCH=dev-v2.14
+ARG CHART_DEFAULT_TAG=test-no-charts
 ARG PARTNER_CHART_DEFAULT_BRANCH=main
 ARG RKE2_CHART_DEFAULT_BRANCH=main
 # kontainer-driver-metadata branch to be set for specific branch other than dev/master, logic at rancher/rancher/pkg/settings/setting.go
@@ -77,11 +78,12 @@ ENV GOCACHE=/root/.cache/go/cache
 
 FROM builder AS rancher-charts
 ARG CHART_DEFAULT_BRANCH
-RUN mkdir -p /var/lib/rancher-data/local-catalogs/v2 && \
-    # Temporarily clone from our GitHub's main repo, to avoid unnecessary load in git.rancher.io
-    git config --global url."https://github.com/rancher/".insteadOf https://git.rancher.io/ && \
-    # Charts need to be copied into the sha256 value of git url computed in https://github.com/rancher/rancher/blob/5ebda9ac23c06e9647b586ec38aa51cc9ff9b031/pkg/catalogv2/git/download.go#L102 to create a unique folder per url
-    git clone --no-checkout -b $CHART_DEFAULT_BRANCH --depth 1 https://git.rancher.io/charts /var/lib/rancher-data/local-catalogs/v2/rancher-charts/4b40cac650031b74776e87c1a726b0484d0877c3ec137da0872547ff9b73a721
+ARG CHART_DEFAULT_TAG
+# Charts need to be copied into the sha256 value of git url computed in https://github.com/rancher/rancher/blob/5ebda9ac23c06e9647b586ec38aa51cc9ff9b031/pkg/catalogv2/git/download.go#L102 to create a unique folder per url
+ARG CATALOG_PATH=/var/lib/rancher-data/local-catalogs/v2/rancher-charts/4b40cac650031b74776e87c1a726b0484d0877c3ec137da0872547ff9b73a721
+RUN mkdir -p ${CATALOG_PATH} && \
+    curl -L https://github.com/mallardduck/rancher-charts/archive/refs/tags/${CHART_DEFAULT_TAG}.tar.gz | \
+    tar -xz -C ${CATALOG_PATH} --strip-components=1
 
 FROM builder AS partner-charts
 ARG PARTNER_CHART_DEFAULT_BRANCH
@@ -155,6 +157,7 @@ ARG RKE2_CHART_DEFAULT_BRANCH
 ARG CATTLE_KDM_BRANCH
 
 ENV CATTLE_CHART_DEFAULT_BRANCH=$CHART_DEFAULT_BRANCH
+ENV CATTLE_CHART_DEFAULT_TAG=$CHART_DEFAULT_TAG
 ENV CATTLE_PARTNER_CHART_DEFAULT_BRANCH=$PARTNER_CHART_DEFAULT_BRANCH
 ENV CATTLE_RKE2_CHART_DEFAULT_BRANCH=$RKE2_CHART_DEFAULT_BRANCH
 ENV CATTLE_MACHINE_VERSION=v0.15.0-rancher137
