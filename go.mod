@@ -11,6 +11,7 @@ replace (
 	github.com/matryer/moq => github.com/rancher/moq v0.0.0-20200712062324-13d1f37d2d77
 	github.com/rancher/rancher/pkg/apis => ./pkg/apis
 	github.com/rancher/rancher/pkg/client => ./pkg/client
+	github.com/rancher/steve => github.com/mallardduck/steve v0.0.0-20260407142844-6fd8e3e546f7
 	github.com/stretchr/testify => github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
@@ -115,7 +116,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/rancher/aks-operator v1.14.0-rc.2
 	github.com/rancher/ali-operator v1.14.0-rc.1
-	github.com/rancher/apiserver v0.9.0
+	github.com/rancher/apiserver v0.9.1
 	github.com/rancher/channelserver v0.9.1-0.20260116181358-8dcd92dec745
 	github.com/rancher/dynamiclistener v0.7.4
 	github.com/rancher/eks-operator v1.14.0-rc.5
@@ -128,7 +129,7 @@ require (
 	github.com/rancher/muchang v0.1.0
 	github.com/rancher/norman v0.9.1
 	github.com/rancher/rancher/pkg/client v0.0.0
-	github.com/rancher/remotedialer v0.6.0
+	github.com/rancher/remotedialer v0.6.1-rc.1
 	github.com/rancher/remotedialer-proxy v0.7.0-rc.5
 	github.com/rancher/rke v1.8.0
 	github.com/rancher/shepherd v0.0.0-20260331204545-07fe2049a102
@@ -264,8 +265,10 @@ require (
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/tinylib/msgp v1.6.3 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
+	github.com/urfave/cli/v2 v2.27.7 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
+	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
