@@ -27,6 +27,7 @@ import (
 	"github.com/rancher/rancher/pkg/catalogv2/content"
 	catalogcontrollers "github.com/rancher/rancher/pkg/generated/controllers/catalog.cattle.io/v1"
 	namespaces "github.com/rancher/rancher/pkg/namespace"
+	"github.com/rancher/rancher/pkg/rbac"
 	"github.com/rancher/rancher/pkg/settings"
 	"github.com/rancher/rancher/pkg/taints"
 	"github.com/rancher/steve/pkg/podimpersonation"
@@ -1181,6 +1182,9 @@ func (s *Operations) createPod(secretData map[string][]byte, kustomize bool, ima
 			secret,
 		},
 		ImageOverride: imageOverride,
+		// TODO: We could make the extra cluster role conditional on the operation maybe?
+		// AFAIK we treate cluster templates different than other Apps, so if we have that context here we can only add then
+		ExtraClusterRoles: []string{rbac.HelmProvisioningReaderRole},
 	}
 }
 
