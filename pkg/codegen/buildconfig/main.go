@@ -29,6 +29,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	if err := updateChartMetadata(cfg); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func loadBuildConfig() (map[string]string, error) {
@@ -111,6 +115,44 @@ func updateChartValues(cfg map[string]string) error {
 
 	// Replace original using the safe cross-device rename helper
 	if err := safeRename(tempPath, "chart/values.yaml"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateChartMetadata(cfg map[string]string) error {
+	// Read chart/Chart.yaml
+	chartMetadata, err := os.Open("chart/Chart.yaml")
+	if err != nil {
+		return err
+	}
+	defer chartMetadata.Close()
+
+	// Create temp file for output
+	tempFile, err := os.CreateTemp("", "Chart-*.yaml")
+	if err != nil {
+		return err
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // Clean up temp file on error
+
+	// Update chart metadata
+	writer := ChartMetadataWriter{
+		Config: cfg,
+		Chart:  chartMetadata,
+		Output: tempFile,
+	}
+	if err := writer.Run(); err != nil {
+		tempFile.Close()
+		return err
+	}
+	if err := tempFile.Close(); err != nil {
+		return err
+	}
+
+	// Replace original using the safe cross-device rename helper
+	if err := safeRename(tempPath, "chart/Chart.yaml"); err != nil {
 		return err
 	}
 
