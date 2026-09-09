@@ -12,10 +12,14 @@ mkdir -p build/chart
 rm -rf build/chart/rancher
 cp -rf ${1} build/chart/rancher
 
-sed -i -e "s/%VERSION%/${CHART_VERSION}/g" build/chart/rancher/Chart.yaml
-sed -i -e "s/%APP_VERSION%/${APP_VERSION}/g" build/chart/rancher/Chart.yaml
+# Note: Chart.yaml version and appVersion are set to sane defaults (0.0.0-dev) by `go generate`
+# to ensure valid YAML in the source tree. However, they must be updated here at chart build time
+# because they depend on runtime git state from scripts/version (not available at `go generate` time).
+# This is different from image versions in chart/values.yaml which come from static build.yaml.
+sed -i -e "s/version: 0.0.0-dev/version: ${CHART_VERSION}/g" build/chart/rancher/Chart.yaml
+sed -i -e "s/appVersion: v0.0.0-dev/appVersion: ${APP_VERSION}/g" build/chart/rancher/Chart.yaml
 
-# Note: Image versions (auditLog, postDelete, preUpgrade) are now managed by
+# Note: Image versions (auditLog, postDelete, preUpgrade) are managed by
 # `go generate` from build.yaml. They are kept in sync automatically in chart/values.yaml.
 
 if [[ -v REGISTRY ]]; then

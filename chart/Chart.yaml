@@ -1,8 +1,10 @@
 apiVersion: v2
 name: rancher
 description: Install Rancher Server to manage Kubernetes clusters across providers.
-version: %VERSION%
-appVersion: %APP_VERSION%
+# Note: version and appVersion are updated at chart build time by scripts/chart/build
+# from values computed by scripts/version. Default values here ensure valid YAML.
+version: 0.0.0-dev
+appVersion: v0.0.0-dev
 kubeVersion: < 1.37.0-0
 home: https://rancher.com
 icon: https://raw.githubusercontent.com/rancher/ui/master/public/assets/images/logos/welcome-cow.svg
