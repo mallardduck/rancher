@@ -3,6 +3,11 @@
 package v3
 
 var (
+	// ToolsSystemImages holds the default system images used by Rancher.
+	//
+	// Deprecated: use buildconfig.DefaultKubeApiAuthImage from
+	// github.com/rancher/rancher/pkg/buildconfig instead. This var will be removed in a
+	// future release.
 	ToolsSystemImages = struct {
 		AuthSystemImages AuthSystemImages
 	}{
